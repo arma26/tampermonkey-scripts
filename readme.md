@@ -1,3 +1,5 @@
+Pretty much everything is vibe coded, I don't like javascript.
+
 # Humble Bundle Key Collector
 
 - create a key collection in the browser local storage so it persists.

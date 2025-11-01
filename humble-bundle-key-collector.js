@@ -5,6 +5,7 @@
 // @description  Collects HumbleBundle product keys, saves them in localStorage, and provides menu commands.
 // @match        https://www.humblebundle.com/*
 // @grant        GM_registerMenuCommand
+// @author       arma26
 // ==/UserScript==
 
 (function() {

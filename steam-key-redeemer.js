@@ -1,9 +1,9 @@
 // ==UserScript==
 // @name         Steam Key Auto Redeemer
 // @namespace    http://tampermonkey.net/
-// @version      1.8
-// @description  Redeem Steam keys via UI JSON, auto-check SSA, click Continue, skip owned keys, detect activation success, and persist redeemed keys in localStorage
-// @author       anonymous
+// @version      2.0
+// @description  Redeem Steam keys via UI JSON, auto-check SSA, click Continue, skip owned keys, and persist redeemed keys in localStorage
+// @author       arma26
 // @match        *://store.steampowered.com/account/registerkey*
 // @grant        none
 // ==/UserScript==
@@ -11,10 +11,9 @@
 (function() {
     'use strict';
 
-    const REDEEMED_KEY = "steam_keys_redeemed";
-    const USER_KEYS = "user_defined_keys";
+    const REDEEMED_KEY = "steam_redeemer_redeemed";
+    const USER_KEYS = "steam_redeemer_keys";
 
-    // Load collections
     let redeemed = JSON.parse(localStorage.getItem(REDEEMED_KEY)) || {};
     let userKeys = JSON.parse(localStorage.getItem(USER_KEYS)) || [];
 
@@ -26,7 +25,7 @@
         localStorage.setItem(USER_KEYS, JSON.stringify(userKeys));
     }
 
-    // Floating UI container (bottom-right, grows upward)
+    // Floating container for all buttons (bottom-right)
     const container = document.createElement('div');
     container.style.position = 'fixed';
     container.style.bottom = '10px';
@@ -37,175 +36,159 @@
     container.style.zIndex = 10000;
     document.body.appendChild(container);
 
-    // Button creator
-    function createButton(label, onClick) {
-        const btn = document.createElement('button');
-        btn.textContent = label;
-        btn.style.padding = '8px 12px';
-        btn.style.fontSize = '14px';
-        btn.style.borderRadius = '6px';
-        btn.style.background = '#5c7e10';
-        btn.style.color = 'white';
-        btn.style.border = 'none';
-        btn.style.cursor = 'pointer';
-        btn.onclick = onClick;
-        container.appendChild(btn);
-        return btn;
-    }
+    // Debug box container
+    const debugBox = document.createElement('div');
+    debugBox.id = 'steam_key_debug_box';
+    debugBox.style.position = 'fixed';
+    debugBox.style.bottom = '120px';
+    debugBox.style.right = '10px';
+    debugBox.style.width = '280px';
+    debugBox.style.maxHeight = '200px';
+    debugBox.style.overflowY = 'auto';
+    debugBox.style.background = 'rgba(30, 30, 30, 0.9)';
+    debugBox.style.color = '#d0d0d0';
+    debugBox.style.fontSize = '12px';
+    debugBox.style.padding = '8px';
+    debugBox.style.borderRadius = '6px';
+    debugBox.style.border = '1px solid #555';
+    debugBox.style.fontFamily = 'monospace';
+    debugBox.style.zIndex = 10001;
+    debugBox.innerHTML = '<b>Steam Key Debug Log</b><br>';
+    document.body.appendChild(debugBox);
 
-    // Create Add Keys button
-    createButton("Add Keys", () => {
-        const existingBox = document.querySelector('#steam_key_input_box');
-        const existingSubmit = document.querySelector('#steam_key_submit_btn');
+    const MAX_LOG_ENTRIES = 8;
 
-        // If already visible, toggle off and clean up
-        if (existingBox || existingSubmit) {
-            if (existingBox) existingBox.remove();
-            if (existingSubmit) existingSubmit.remove();
-            return;
+    function logDebug(message, status = '') {
+        const time = new Date().toLocaleTimeString();
+        const entry = document.createElement('div');
+        let color = '#ccc';
+        if (status === 'owned') color = '#4caf50';
+        else if (status === 'too_many_attempts') color = '#ff9800';
+        else if (status === 'unknown') color = '#999';
+        else if (status === 'error') color = '#f44336';
+        entry.style.color = color;
+        entry.textContent = `[${time}] ${message}`;
+        debugBox.appendChild(entry);
+
+        // Limit total entries
+        while (debugBox.childNodes.length > MAX_LOG_ENTRIES + 1) {
+            debugBox.removeChild(debugBox.childNodes[1]);
         }
 
-        // Create input box dynamically
-        const inputBox = document.createElement('textarea');
-        inputBox.id = 'steam_key_input_box';
-        inputBox.placeholder = 'Enter JSON array of keys';
-        inputBox.style.width = '250px';
-        inputBox.style.height = '100px';
-        inputBox.style.fontSize = '12px';
-        inputBox.style.borderRadius = '6px';
-        inputBox.style.padding = '6px';
-        inputBox.style.resize = 'none';
-        inputBox.style.position = 'fixed';
-        inputBox.style.bottom = '60px';
-        inputBox.style.right = '10px';
-        inputBox.style.zIndex = '10001';
-        document.body.appendChild(inputBox);
+        // Auto-scroll to bottom
+        debugBox.scrollTop = debugBox.scrollHeight;
+    }
 
-        // Create Submit button
-        const submitBtn = document.createElement('button');
-        submitBtn.id = 'steam_key_submit_btn';
-        submitBtn.textContent = 'Submit Keys';
-        submitBtn.style.position = 'fixed';
-        submitBtn.style.bottom = '170px';
-        submitBtn.style.right = '10px';
-        submitBtn.style.padding = '6px 10px';
-        submitBtn.style.fontSize = '12px';
-        submitBtn.style.borderRadius = '6px';
-        submitBtn.style.background = '#3a5f0b';
-        submitBtn.style.color = 'white';
-        submitBtn.style.border = 'none';
-        submitBtn.style.cursor = 'pointer';
-        document.body.appendChild(submitBtn);
-
-        submitBtn.onclick = () => {
-            try {
-                const newKeys = JSON.parse(inputBox.value);
-                if (Array.isArray(newKeys)) {
-                    let added = 0;
-                    for (const key of newKeys) {
-                        if (!userKeys.includes(key) && !redeemed[key]) {
-                            userKeys.push(key);
-                            added++;
-                        }
-                    }
-                    saveUserKeys();
-                    console.log(`[SteamRedeemer] Added ${added} new keys`);
-                    alert(`Added ${added} new keys`);
-                } else {
-                    alert("Invalid JSON format — must be an array of strings.");
-                }
-            } catch (e) {
-                alert("Invalid JSON: " + e.message);
-            }
-
-            // Clean up after submission
-            inputBox.remove();
-            submitBtn.remove();
-        };
-    });
-
-    // Helper: find Continue button
+    // Find Continue button
     function findContinueButton() {
         const elements = Array.from(document.querySelectorAll('button, span'));
         return elements.find(el => el.innerText.trim() === "Continue");
     }
 
-    // Get next untested key
-    function getNextUntestedKey() {
-        return userKeys.find(k => !(k in redeemed));
+
+// Update the logic for getting the next untested key (including retrying keys with 'too_many_attempts')
+function getNextUntestedKey() {
+    // Skip keys that are already marked as "owned"
+    return userKeys.find(k => !(k in redeemed) || redeemed[k] === 'too_many_attempts');
+}
+
+async function redeemKey(key, button) {
+    if (!key) {
+        logDebug("No untested keys available.", "error");
+        alert("No untested keys available.");
+        return;
     }
 
-    // Redeem logic
-    async function redeemKey(key) {
-        if (!key) {
-            console.log("[SteamRedeemer] No untested keys available.");
-            alert("No more untested keys available.");
-            return;
-        }
+    const input = document.querySelector('#product_key');
+    const checkbox = document.querySelector('#accept_ssa');
+    const continueBtn = findContinueButton();
 
-        const input = document.querySelector('#product_key');
-        const checkbox = document.querySelector('#accept_ssa');
-        const continueBtn = findContinueButton();
+    if (!input || !checkbox || !continueBtn) {
+        logDebug("Missing form elements.", "error");
+        return;
+    }
 
-        if (!input || !checkbox || !continueBtn) {
-            console.error("[SteamRedeemer] Required elements not found on the page.");
-            return;
-        }
+    // Disable button while working
+    if (button) {
+        button.disabled = true;
+        button.textContent = "Processing...";
+        button.style.opacity = "0.6";
+    }
 
-        input.value = key;
+    input.value = key;
+    checkbox.checked = true;
+    continueBtn.click();
+    logDebug(`Submitted key: ${key}`);
+
+    await new Promise(r => setTimeout(r, 3000)); // wait for page change or result
+    const bodyText = document.body.innerText;
+
+    // Handle "Too many attempts"
+    if (/too many recent activation attempts/i.test(bodyText)) {
+        redeemed[key] = "too_many_attempts";
+        saveRedeemed();
+        logDebug(`Key ${key}: too many attempts`, "too_many_attempts");
+        alert("Too many activation attempts. Please try again later.");
+    }
+
+    // Handle "Already owns the product"
+    else if (/already owns the product/i.test(bodyText)) {
+        redeemed[key] = "owned";
+        saveRedeemed();
+        logDebug(`Key ${key}: already owned`, "owned");
+    }
+
+    // Otherwise assume success
+    else {
+        redeemed[key] = "owned";
+        saveRedeemed();
+        logDebug(`Key ${key}: activation successful`, "owned");
+    }
+
+    // Re-enable button when done
+    if (button) {
+        button.disabled = false;
+        button.textContent = "Redeem Next Key";
+        button.style.opacity = "1";
+    }
+
+    // Prepare next key automatically in the field
+    const nextKey = getNextUntestedKey();
+    if (nextKey) {
+        input.value = nextKey;
         checkbox.checked = true;
-        continueBtn.click();
-
-        console.log(`[SteamRedeemer] Submitted key: ${key}`);
-
-        // Wait for response
-        await new Promise(r => setTimeout(r, 3000));
-
-        const bodyText = document.body.innerText;
-
-        // Detection cases
-        if (/too many recent activation attempts/i.test(bodyText)) {
-            console.warn(`[SteamRedeemer] Too many attempts — stopping.`);
-            redeemed[key] = "too_many_attempts";
-            saveRedeemed();
-            alert("Too many activation attempts. Please try again later.");
-            return;
-        }
-
-        if (/already owns the product/i.test(bodyText)) {
-            console.log(`[SteamRedeemer] Already owned: ${key}`);
-            redeemed[key] = "owned";
-            saveRedeemed();
-            const nextKey = getNextUntestedKey();
-            if (nextKey) {
-                input.value = nextKey;
-                checkbox.checked = true;
-                console.log(`[SteamRedeemer] Loaded next key: ${nextKey}`);
-            }
-            return;
-        }
-
-        const successH2 = document.querySelector('h2');
-        if (successH2 && successH2.innerText.includes("Activation Successful!")) {
-            console.log(`[SteamRedeemer] Activation successful: ${key}`);
-            redeemed[key] = "owned";
-            saveRedeemed();
-            const nextKey = getNextUntestedKey();
-            if (nextKey) {
-                input.value = nextKey;
-                checkbox.checked = true;
-                console.log(`[SteamRedeemer] Loaded next key: ${nextKey}`);
-            }
-            return;
-        }
-
-        console.log(`[SteamRedeemer] No known result for key: ${key}`);
+        logDebug(`Prepared next key: ${nextKey}`);
+    } else {
+        input.value = "";
+        logDebug("No more untested keys available.");
     }
+}
+function addRedeemNextKeyButton() {
+    const checkboxContainer = document.querySelector('#accept_ssa')?.parentNode;
+    if (!checkboxContainer) return;
 
-    // Redeem Next Key button
-    createButton("Redeem Next Key", async () => {
+    const btn = document.createElement('button');
+    btn.textContent = 'Redeem Next Key';
+    btn.style.padding = '8px 12px';
+    btn.style.fontSize = '14px';
+    btn.style.borderRadius = '6px';
+    btn.style.background = '#5c7e10';
+    btn.style.color = 'white';
+    btn.style.border = 'none';
+    btn.style.cursor = 'pointer';
+    btn.style.marginTop = '8px';
+    btn.onclick = async () => {
         const key = getNextUntestedKey();
-        await redeemKey(key);
-    });
+        if (key) {
+            await redeemKey(key, btn);
+        } else {
+            alert("No untested keys available.");
+        }
+    };
+
+    checkboxContainer.appendChild(btn);
+}
+
+addRedeemNextKeyButton();
 
 })();
