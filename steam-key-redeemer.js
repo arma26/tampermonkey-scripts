@@ -1,7 +1,7 @@
 // ==UserScript==
-// @name         Steam Key Manual Redeemer
+// @name         Steam Key Redeemer
 // @namespace    http://tampermonkey.net/
-// @version      1.2
+// @version      1.3
 // @description  Redeem one Steam key at a time manually; handles backups and key tracking
 // @match        *://store.steampowered.com/account/registerkey*
 // @grant        GM_registerMenuCommand
@@ -69,16 +69,17 @@
         keyInput.value = key;
         ssaCheckbox.checked = true;
         continueButton.click();
-        //logWithTimestamp(`Clicked redeem button for key: ${key}`);
         await sleep(2000);
 
         const bodyText = document.body.innerText;
 
         let status = 'success';
-        if (bodyText.includes('too many recent activation attempts')) status = 'too many attempts';
-        else if (bodyText.includes('already owns')) status = 'already owned';
+        if (bodyText.includes('already been activated')) status = 'already owned';
+        else if (bodyText.includes('contained in this offer')) status = 'already owned';
+        else if (bodyText.includes('too many recent activation attempts')) status = 'too many attempts';
         else if (bodyText.includes('not valid or is not a product code')) status = 'invalid';
-        else if (bodyText.includes('requires ownership of another product')) status = 'dependent';
+        else if (bodyText.includes('requires ownership of another product before activation')) status = 'dependent';
+        else if (bodyText.includes('activated by a different Steam account')) status = 'activated by different account';
         else if (bodyText.includes('An unexpected error has occurred')) status = 'error';
 
         redeemedKeys[key] = status;
