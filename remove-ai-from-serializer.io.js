@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Remove AI links from serializer.io
 // @namespace    http://tampermonkey.net/
-// @version      0.4.1
+// @version      0.4.2
 // @description  Remove AI links from serializer.io
 // @author       arma26
 // @match        https://serializer.io/*
@@ -18,6 +18,7 @@
 
     function removeAIEntries() {
         const titles = document.querySelectorAll("tr h2.item-title a");
+        const scrollY = window.scrollY;
 
         titles.forEach(title => {
             // Check for case-sensitive keywords
@@ -37,6 +38,8 @@
                 }
             }
         });
+
+        window.scrollTo(0, scrollY);
     }
 
     removeAIEntries();
