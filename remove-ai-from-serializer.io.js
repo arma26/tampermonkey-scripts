@@ -5,8 +5,8 @@
 // @description  Remove AI links from serializer.io
 // @author       arma26
 // @match        https://serializer.io/*
-// @updateURL    https://raw.github.com/arma26/tampermonkey-scripts/blob/master/remove-ai-from-serializer.io.js
-// @downloadURL  https://raw.github.com/arma26/tampermonkey-scripts/blob/master/remove-ai-from-serializer.io.js
+// @updateURL    https://raw.githubusercontent.com/arma26/tampermonkey-scripts/refs/heads/master/remove-ai-from-serializer.io.js
+// @downloadURL  https://raw.githubusercontent.com/arma26/tampermonkey-scripts/refs/heads/master/remove-ai-from-serializer.io.js
 // @grant        none
 // @run-at       document-idle
 // ==/UserScript==
