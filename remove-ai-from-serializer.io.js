@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Remove AI links from serializer.io
 // @namespace    http://tampermonkey.net/
-// @version      0.4.2
+// @version      0.4.3
 // @description  Remove AI links from serializer.io
 // @author       arma26
 // @match        https://serializer.io/*
