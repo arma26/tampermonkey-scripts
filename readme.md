@@ -36,3 +36,11 @@ Pretty much everything is vibe coded, I don't like javascript.
 - moves the coupon list under the product card on tool pages
 - hides expired coupons by default and adds a toggle to reveal them
 - removes the unused chart/list tab strip on tool pages after moving the coupon list
+
+# Amazon Orders Today First
+
+- moves order cards marked `Arriving today` or `Delivered today` to the top of the Amazon orders page
+- adds a second top section for orders marked `Arriving tomorrow`
+- adds a small section heading above the promoted orders
+- moves matching orders into a dedicated top section instead of duplicating them
+- reruns automatically as Amazon hydrates or updates the order list
