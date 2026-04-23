@@ -17,3 +17,17 @@ Pretty much everything is vibe coded, I don't like javascript.
 
 - remove links relating to AI from the aggregator
 - supports infinite scroll and detects when the page changes and reruns the filter
+# Steam Deck Verified to Top
+
+- moves the Steam Deck compatibility block to the top of the right sidebar on Steam app pages
+
+# ChatGPT Conversation JSON Exporter
+
+- exports the active ChatGPT conversation to JSON via Tampermonkey menu commands
+- includes copy-to-clipboard, download, preview, and stats actions
+
+# HF Price Tracker Table Toggle
+
+- replaces the deals card grid on `hfpricetracker.com` with a table by default
+- adds an in-page toggle button to switch between the generated table and the original cards
+- preserves the visible up/down coloring in the generated table
