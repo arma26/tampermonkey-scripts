@@ -1,8 +1,8 @@
 // ==UserScript==
-// @name         HF Price Tracker Table Toggle
+// @name         HF Price Tracker Tools
 // @namespace    http://tampermonkey.net/
 // @version      1.0
-// @description  Replace deal cards with a color-preserving table and add a toggle between views
+// @description  Add table and link tools for hfpricetracker.com
 // @match        https://hfpricetracker.com/*
 // @grant        none
 // ==/UserScript==
@@ -15,8 +15,19 @@
     const TABLE_ID = 'hfpt-table-view';
     const TOGGLE_ID = 'hfpt-toggle-view';
     const STYLE_ID = 'hfpt-table-style';
+    const PRODUCT_CONTAINER_SELECTOR = '.product-container';
+    const PRICE_HISTORY_SELECTOR = '.product-container > .price-history';
+    const COUPON_HISTORY_SELECTOR = '.coupon-history';
+    const COUPON_SECTION_ID = 'hfpt-coupon-section';
+    const COUPON_SIDEBAR_ID = 'hfpt-product-sidebar';
+    const COUPON_TOGGLE_ID = 'hfpt-expired-coupons-toggle';
+    const COUPON_EMPTY_ID = 'hfpt-no-active-coupons';
     const STORAGE_KEY = 'hfpt-view-mode';
+    const EXPIRED_COUPONS_STORAGE_KEY = 'hfpt-show-expired-coupons';
     const DEFAULT_MODE = 'table';
+    const MATCHES_LOWEST_CLASS = 'hfpt-matches-lowest';
+    const HARBOR_FREIGHT_SEARCH_URL = 'https://www.harborfreight.com/search?q=';
+    const TRACKER_RELATIVE_TOOL_PATH = '/tools/';
 
     let observer = null;
     let renderScheduled = false;
@@ -27,6 +38,14 @@
 
     function setViewMode(mode) {
         localStorage.setItem(STORAGE_KEY, mode);
+    }
+
+    function getShowExpiredCoupons() {
+        return localStorage.getItem(EXPIRED_COUPONS_STORAGE_KEY) === 'true';
+    }
+
+    function setShowExpiredCoupons(value) {
+        localStorage.setItem(EXPIRED_COUPONS_STORAGE_KEY, value ? 'true' : 'false');
     }
 
     function injectStyles() {
@@ -73,6 +92,14 @@
                 background: #f8fafc;
             }
 
+            #${TABLE_ID} tbody tr.${MATCHES_LOWEST_CLASS} {
+                background: #e8f3ff;
+            }
+
+            #${TABLE_ID} tbody tr.${MATCHES_LOWEST_CLASS}:hover {
+                background: #dcecff;
+            }
+
             #${TABLE_ID} td.hfpt-product-cell a,
             #${TABLE_ID} td.hfpt-brand-cell a {
                 color: inherit;
@@ -90,12 +117,57 @@
 
             #${TABLE_ID} td.hfpt-price-cell,
             #${TABLE_ID} td.hfpt-change-cell,
-            #${TABLE_ID} td.hfpt-sku-cell {
+            #${TABLE_ID} td.hfpt-sku-cell,
+            #${TABLE_ID} td.hfpt-hf-cell,
+            #${TABLE_ID} td.hfpt-tracker-cell {
                 white-space: nowrap;
             }
 
             .hfpt-hidden {
                 display: none !important;
+            }
+
+            #${COUPON_SIDEBAR_ID} {
+                display: flex;
+                flex: 0 0 320px;
+                flex-direction: column;
+                gap: 16px;
+                width: 100%;
+                max-width: 320px;
+                align-self: flex-start;
+            }
+
+            #${COUPON_SECTION_ID} {
+                width: 100%;
+            }
+
+            #${COUPON_SECTION_ID} h2 {
+                margin: 0 0 12px;
+            }
+
+            #${COUPON_SECTION_ID} .hfpt-coupon-controls {
+                margin-bottom: 12px;
+            }
+
+            #${COUPON_TOGGLE_ID} {
+                cursor: pointer;
+            }
+
+            #${COUPON_SECTION_ID} .coupon-history ul {
+                margin: 0;
+                padding-left: 18px;
+            }
+
+            #${COUPON_EMPTY_ID} {
+                margin: 0;
+                color: #666;
+            }
+
+            @media (max-width: 900px) {
+                #${COUPON_SIDEBAR_ID} {
+                    max-width: none;
+                    flex-basis: auto;
+                }
             }
         `;
 
@@ -140,11 +212,13 @@
             brandHref: brandLink.href,
             brandText,
             productHref: productLink.href,
+            trackerHref: getTrackerHref(productLink.href, skuText),
             productName,
             skuText,
             changeText,
             currentPrice: prices.current,
             lowestPrice: prices.lowest,
+            matchesLowest: prices.current && prices.current === prices.lowest,
             trendClass,
             color: getRowColor(productLink)
         };
@@ -155,6 +229,28 @@
         link.href = href;
         link.textContent = text;
         return link;
+    }
+
+    function getHarborFreightSearchHref(skuText) {
+        const sku = skuText.replace(/^#/, '').trim();
+        return `${HARBOR_FREIGHT_SEARCH_URL}${encodeURIComponent(sku)}`;
+    }
+
+    function getTrackerHref(productHref, skuText) {
+        if (productHref.includes('/tools/')) {
+            return productHref;
+        }
+
+        const sku = skuText.replace(/^#/, '').trim();
+        if (!sku) {
+            return window.location.href;
+        }
+
+        return new URL(`${TRACKER_RELATIVE_TOOL_PATH}${encodeURIComponent(sku)}`, window.location.origin).href;
+    }
+
+    function getHarborFreightHref(_productHref, skuText) {
+        return getHarborFreightSearchHref(skuText);
     }
 
     function appendCell(row, className, content, color) {
@@ -179,7 +275,7 @@
 
         const thead = document.createElement('thead');
         const headerRow = document.createElement('tr');
-        ['Brand', 'SKU', 'Change', 'Product', 'Current', 'Lowest'].forEach(label => {
+        ['Brand', 'SKU', 'Change', 'Product', 'Current', 'Lowest', 'Tracker', 'HF'].forEach(label => {
             const th = document.createElement('th');
             th.textContent = label;
             headerRow.appendChild(th);
@@ -196,6 +292,9 @@
             if (data.trendClass) {
                 row.classList.add(data.trendClass);
             }
+            if (data.matchesLowest) {
+                row.classList.add(MATCHES_LOWEST_CLASS);
+            }
 
             appendCell(row, 'hfpt-brand-cell', makeLink(data.brandHref, data.brandText), data.color);
             appendCell(row, 'hfpt-sku-cell', data.skuText, data.color);
@@ -203,6 +302,8 @@
             appendCell(row, 'hfpt-product-cell', makeLink(data.productHref, data.productName), data.color);
             appendCell(row, 'hfpt-price-cell', data.currentPrice, data.color);
             appendCell(row, 'hfpt-price-cell', data.lowestPrice, data.color);
+            appendCell(row, 'hfpt-tracker-cell', makeLink(data.trackerHref, 'Open'), data.color);
+            appendCell(row, 'hfpt-hf-cell', makeLink(getHarborFreightHref(data.productHref, data.skuText), 'Open'), data.color);
             tbody.appendChild(row);
         }
 
@@ -276,6 +377,110 @@
         applyMode(container, getViewMode());
     }
 
+    function getProductCard(productContainer) {
+        return productContainer.querySelector(`#${COUPON_SIDEBAR_ID} > .product`) ||
+            productContainer.querySelector(':scope > .product');
+    }
+
+    function ensureProductSidebar(productContainer, productCard, priceHistory) {
+        let sidebar = productContainer.querySelector(`#${COUPON_SIDEBAR_ID}`);
+        if (!sidebar) {
+            sidebar = document.createElement('div');
+            sidebar.id = COUPON_SIDEBAR_ID;
+            productContainer.insertBefore(sidebar, priceHistory || productCard.nextSibling);
+        }
+
+        if (productCard.parentElement !== sidebar) {
+            sidebar.appendChild(productCard);
+        }
+
+        return sidebar;
+    }
+
+    function hidePriceHistoryTabs(priceHistory) {
+        const tabBar = priceHistory?.querySelector('.tab');
+        if (tabBar) {
+            tabBar.classList.add('hfpt-hidden');
+        }
+    }
+
+    function updateExpiredCouponVisibility(section) {
+        const showExpired = getShowExpiredCoupons();
+        const toggle = section.querySelector(`#${COUPON_TOGGLE_ID}`);
+        const emptyState = section.querySelector(`#${COUPON_EMPTY_ID}`);
+        const items = Array.from(section.querySelectorAll('.coupon-history li'));
+
+        let visibleItems = 0;
+        for (const item of items) {
+            const isExpired = Boolean(item.querySelector('.expired'));
+            const shouldShow = !isExpired || showExpired;
+            item.classList.toggle('hfpt-hidden', !shouldShow);
+            if (shouldShow) {
+                visibleItems += 1;
+            }
+        }
+
+        if (toggle) {
+            toggle.textContent = showExpired ? 'Hide expired coupons' : 'Show expired coupons';
+        }
+
+        if (emptyState) {
+            emptyState.classList.toggle('hfpt-hidden', visibleItems > 0);
+        }
+    }
+
+    function ensureCouponSection(sidebar, couponHistory) {
+        let section = sidebar.querySelector(`#${COUPON_SECTION_ID}`);
+        if (!section) {
+            section = document.createElement('section');
+            section.id = COUPON_SECTION_ID;
+
+            const heading = document.createElement('h2');
+            heading.textContent = 'Coupon List';
+
+            const controls = document.createElement('div');
+            controls.className = 'hfpt-coupon-controls tab';
+
+            const toggle = document.createElement('button');
+            toggle.id = COUPON_TOGGLE_ID;
+            toggle.type = 'button';
+            toggle.className = 'tablinks';
+            toggle.addEventListener('click', () => {
+                setShowExpiredCoupons(!getShowExpiredCoupons());
+                updateExpiredCouponVisibility(section);
+            });
+
+            const emptyState = document.createElement('p');
+            emptyState.id = COUPON_EMPTY_ID;
+            emptyState.textContent = 'No active coupons.';
+
+            controls.appendChild(toggle);
+            section.appendChild(heading);
+            section.appendChild(controls);
+            section.appendChild(emptyState);
+            sidebar.appendChild(section);
+        }
+
+        if (couponHistory.parentElement !== section) {
+            section.appendChild(couponHistory);
+        }
+
+        updateExpiredCouponVisibility(section);
+    }
+
+    function renderProductPageTools() {
+        const productContainer = document.querySelector(PRODUCT_CONTAINER_SELECTOR);
+        const productCard = productContainer ? getProductCard(productContainer) : null;
+        const priceHistory = document.querySelector(PRICE_HISTORY_SELECTOR);
+        const couponHistory = document.querySelector(`${PRODUCT_CONTAINER_SELECTOR} ${COUPON_HISTORY_SELECTOR}`);
+
+        if (!productContainer || !productCard || !priceHistory || !couponHistory) return;
+
+        const sidebar = ensureProductSidebar(productContainer, productCard, priceHistory);
+        hidePriceHistoryTabs(priceHistory);
+        ensureCouponSection(sidebar, couponHistory);
+    }
+
     function scheduleRender() {
         if (renderScheduled) return;
         renderScheduled = true;
@@ -283,6 +488,7 @@
         window.requestAnimationFrame(() => {
             renderScheduled = false;
             renderTableView();
+            renderProductPageTools();
         });
     }
 
@@ -292,14 +498,22 @@
         observer = new MutationObserver(mutations => {
             for (const mutation of mutations) {
                 if (mutation.type !== 'childList') continue;
-                if (mutation.target instanceof Element && mutation.target.closest(CONTAINER_SELECTOR)) {
+                if (mutation.target instanceof Element && (
+                    mutation.target.closest(CONTAINER_SELECTOR) ||
+                    mutation.target.closest(PRODUCT_CONTAINER_SELECTOR)
+                )) {
                     scheduleRender();
                     return;
                 }
 
                 for (const node of mutation.addedNodes) {
                     if (!(node instanceof Element)) continue;
-                    if (node.matches?.(CONTAINER_SELECTOR) || node.querySelector?.(CONTAINER_SELECTOR)) {
+                    if (
+                        node.matches?.(CONTAINER_SELECTOR) ||
+                        node.querySelector?.(CONTAINER_SELECTOR) ||
+                        node.matches?.(PRODUCT_CONTAINER_SELECTOR) ||
+                        node.querySelector?.(PRODUCT_CONTAINER_SELECTOR)
+                    ) {
                         scheduleRender();
                         return;
                     }
@@ -313,6 +527,7 @@
     function init() {
         injectStyles();
         renderTableView();
+        renderProductPageTools();
         initObserver();
     }
 

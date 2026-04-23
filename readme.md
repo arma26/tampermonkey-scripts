@@ -26,8 +26,13 @@ Pretty much everything is vibe coded, I don't like javascript.
 - exports the active ChatGPT conversation to JSON via Tampermonkey menu commands
 - includes copy-to-clipboard, download, preview, and stats actions
 
-# HF Price Tracker Table Toggle
+# HF Price Tracker Tools
 
 - replaces the deals card grid on `hfpricetracker.com` with a table by default
 - adds an in-page toggle button to switch between the generated table and the original cards
 - preserves the visible up/down coloring in the generated table
+- highlights rows in light blue when the current price matches the lowest price
+- adds explicit tracker product links and Harbor Freight links for each row
+- moves the coupon list under the product card on tool pages
+- hides expired coupons by default and adds a toggle to reveal them
+- removes the unused chart/list tab strip on tool pages after moving the coupon list
