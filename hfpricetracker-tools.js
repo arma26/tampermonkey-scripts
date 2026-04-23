@@ -66,10 +66,12 @@
             }
 
             #${TABLE_ID} {
+                display: block;
                 width: 100%;
                 border-collapse: collapse;
                 margin-bottom: 16px;
                 background: #fff;
+                overflow-x: auto;
             }
 
             #${TABLE_ID} th,
@@ -129,28 +131,83 @@
 
             #${COUPON_SIDEBAR_ID} {
                 display: flex;
-                flex: 0 0 320px;
+                flex: 1 1 420px;
                 flex-direction: column;
                 gap: 16px;
                 width: 100%;
-                max-width: 320px;
+                max-width: 520px;
+                min-width: 320px;
                 align-self: flex-start;
+            }
+
+            #${COUPON_SIDEBAR_ID} > .product,
+            #${COUPON_SIDEBAR_ID} > .product .brandLink,
+            #${COUPON_SIDEBAR_ID} > .product .productLink {
+                display: block;
+                width: 100% !important;
+                max-width: none !important;
+                box-sizing: border-box;
+            }
+
+            #${COUPON_SIDEBAR_ID} > .product .productLink {
+                display: flex;
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            #${COUPON_SIDEBAR_ID} > .product .productLink > p,
+            #${COUPON_SIDEBAR_ID} > .product .productLink > div {
+                width: 100% !important;
+                max-width: none !important;
+                box-sizing: border-box;
+            }
+
+            #${COUPON_SIDEBAR_ID} > .product .image {
+                display: block;
+                width: auto !important;
+                max-width: 100%;
+                height: auto;
+                align-self: center;
+            }
+
+            #${COUPON_SIDEBAR_ID} > .product .product-name {
+                max-width: none !important;
+            }
+
+            ${PRODUCT_CONTAINER_SELECTOR} {
+                align-items: flex-start;
+                gap: 16px;
+            }
+
+            ${PRICE_HISTORY_SELECTOR} {
+                flex: 2 1 0;
+                min-width: 0;
             }
 
             #${COUPON_SECTION_ID} {
                 width: 100%;
             }
 
-            #${COUPON_SECTION_ID} h2 {
-                margin: 0 0 12px;
+            #${COUPON_SECTION_ID} .hfpt-coupon-header {
+                display: flex;
+                align-items: baseline;
+                gap: 8px;
+                margin-bottom: 12px;
+                flex-wrap: wrap;
             }
 
-            #${COUPON_SECTION_ID} .hfpt-coupon-controls {
-                margin-bottom: 12px;
+            #${COUPON_SECTION_ID} h2 {
+                margin: 0;
             }
 
             #${COUPON_TOGGLE_ID} {
+                padding: 0;
+                border: 0;
+                background: transparent;
+                color: inherit;
                 cursor: pointer;
+                font: inherit;
+                text-decoration: underline;
             }
 
             #${COUPON_SECTION_ID} .coupon-history ul {
@@ -164,9 +221,24 @@
             }
 
             @media (max-width: 900px) {
+                ${PRODUCT_CONTAINER_SELECTOR} {
+                    display: flex;
+                    flex-direction: column;
+                }
+
+                ${PRICE_HISTORY_SELECTOR} {
+                    width: 100%;
+                }
+
                 #${COUPON_SIDEBAR_ID} {
+                    order: -1;
+                    width: 100%;
                     max-width: none;
                     flex-basis: auto;
+                }
+
+                #${TABLE_ID} td.hfpt-product-cell {
+                    min-width: 220px;
                 }
             }
         `;
@@ -421,7 +493,7 @@
         }
 
         if (toggle) {
-            toggle.textContent = showExpired ? 'Hide expired coupons' : 'Show expired coupons';
+            toggle.textContent = showExpired ? 'hide expired coupons' : 'show expired coupons';
         }
 
         if (emptyState) {
@@ -435,16 +507,15 @@
             section = document.createElement('section');
             section.id = COUPON_SECTION_ID;
 
+            const header = document.createElement('div');
+            header.className = 'hfpt-coupon-header';
+
             const heading = document.createElement('h2');
             heading.textContent = 'Coupon List';
-
-            const controls = document.createElement('div');
-            controls.className = 'hfpt-coupon-controls tab';
 
             const toggle = document.createElement('button');
             toggle.id = COUPON_TOGGLE_ID;
             toggle.type = 'button';
-            toggle.className = 'tablinks';
             toggle.addEventListener('click', () => {
                 setShowExpiredCoupons(!getShowExpiredCoupons());
                 updateExpiredCouponVisibility(section);
@@ -454,9 +525,9 @@
             emptyState.id = COUPON_EMPTY_ID;
             emptyState.textContent = 'No active coupons.';
 
-            controls.appendChild(toggle);
-            section.appendChild(heading);
-            section.appendChild(controls);
+            header.appendChild(heading);
+            header.appendChild(toggle);
+            section.appendChild(header);
             section.appendChild(emptyState);
             sidebar.appendChild(section);
         }
