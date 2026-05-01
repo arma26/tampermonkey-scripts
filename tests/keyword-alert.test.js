@@ -169,6 +169,19 @@ test('loadPatternConfigs falls back to defaults for invalid stored configs', () 
     }
 });
 
+test('loadPatternConfigs falls back to defaults for mixed-validity stored configs', () => {
+    global.GM_getValue = () => [
+        { name: 'Stored Phrase', source: 'stored value', flags: 'i', severity: 'normal' },
+        { name: 'Broken', source: '(', flags: '' }
+    ];
+
+    try {
+        assert.deepEqual(loadPatternConfigs(), getDefaultPatternConfigs());
+    } finally {
+        delete global.GM_getValue;
+    }
+});
+
 test('savePatternConfigs uses GM_setValue when available', () => {
     const savedCalls = [];
     const patternConfigs = [

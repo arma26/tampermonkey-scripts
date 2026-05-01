@@ -76,7 +76,11 @@
         }
 
         const compiledStored = compilePatternConfigs(storedValue);
-        return compiledStored.patterns.length > 0 ? storedValue : defaults;
+        if (compiledStored.errors.length > 0 || compiledStored.patterns.length === 0) {
+            return defaults;
+        }
+
+        return storedValue;
     }
 
     function savePatternConfigs(patternConfigs) {
