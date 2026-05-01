@@ -51,4 +51,7 @@ Pretty much everything is vibe coded, I don't like javascript.
 - shows a blocking popup when configured patterns match
 - uses stronger warning copy on checkout, order, shipping, billing, profile, and account-like pages
 - is designed to tolerate SPA updates and infinite-scroll DOM churn without repeated identical popups
-- configure the regex patterns by editing the `CONFIG.patterns` array in `keyword-alert.js`
+- stores keyword patterns in Tampermonkey storage rather than the script body
+- includes Tampermonkey menu commands to list, add, edit, remove, and reset keywords
+- stores regexes as `source` plus `flags`, then compiles them at runtime
+- allows an intentionally empty keyword list, which disables alerts until keywords are added again
