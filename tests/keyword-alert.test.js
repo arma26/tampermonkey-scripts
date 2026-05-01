@@ -254,6 +254,7 @@ test('refreshRuntimePatterns preserves an intentionally empty configuration', ()
 });
 
 test('promptForPatternConfig returns a serializable pattern config for valid prompts', () => {
+    const promptMessages = [];
     const prompts = [
         'Stored Phrase',
         'stored value',
@@ -262,12 +263,21 @@ test('promptForPatternConfig returns a serializable pattern config for valid pro
     ];
 
     const config = promptForPatternConfig(null, {
-        prompt: () => prompts.shift(),
+        prompt: message => {
+            promptMessages.push(message);
+            return prompts.shift();
+        },
         alert: () => {
             throw new Error('alert should not be called');
         }
     });
 
+    assert.deepEqual(promptMessages, [
+        'Keyword name\nExample: Old Address',
+        'Regex source\nExample: 123 Main St|PO Box 42',
+        'Regex flags\nExamples: i = ignore case, g = global, m = multiline, gi = case-insensitive global, blank = none',
+        'Severity\nExample: high'
+    ]);
     assert.deepEqual(config, {
         name: 'Stored Phrase',
         source: 'stored value',
@@ -298,6 +308,10 @@ test('promptForPatternConfig rejects invalid regex input with prompt feedback', 
     assert.equal(config, null);
     assert.equal(promptMessages.length, 5);
     assert.match(promptMessages[4], /invalid regex/i);
+    assert.equal(promptMessages[0], 'Keyword name\nExample: Old Address');
+    assert.equal(promptMessages[1], 'Regex source\nExample: 123 Main St|PO Box 42');
+    assert.equal(promptMessages[2], 'Regex flags\nExamples: i = ignore case, g = global, m = multiline, gi = case-insensitive global, blank = none');
+    assert.equal(promptMessages[3], 'Severity\nExample: high');
 });
 
 test('createMenuHandlers addKeyword saves refreshes and schedules a rescan', () => {

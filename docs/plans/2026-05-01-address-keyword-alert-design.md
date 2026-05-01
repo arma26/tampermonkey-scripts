@@ -75,6 +75,8 @@ Interaction model:
 
 - Each command uses `prompt()` and `confirm()` only.
 - `Add` and `Edit` collect `name`, `source`, `flags`, and optional `severity`.
+- Pattern-entry prompts include short static instructions and examples for each field.
+- The flags prompt explains the common regex flags `i`, `g`, and `m`, and shows that blank is allowed.
 - `List` shows the current stored patterns in a readable text block.
 - `Remove` selects an existing pattern by number or exact name.
 - `Reset` replaces stored patterns with the built-in defaults after confirmation.

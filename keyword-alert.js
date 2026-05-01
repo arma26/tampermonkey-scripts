@@ -21,6 +21,12 @@
         ['Remove keyword', 'removeKeyword'],
         ['Reset keywords to defaults', 'resetKeywords']
     ];
+    const PATTERN_PROMPTS = {
+        name: 'Keyword name\nExample: Old Address',
+        source: 'Regex source\nExample: 123 Main St|PO Box 42',
+        flags: 'Regex flags\nExamples: i = ignore case, g = global, m = multiline, gi = case-insensitive global, blank = none',
+        severity: 'Severity\nExample: high'
+    };
 
     function getDefaultPatternConfigs() {
         return [
@@ -496,16 +502,16 @@
         if (typeof promptFn !== 'function') return null;
 
         const current = existingConfig || {};
-        const name = promptFn('Keyword name', current.name || '');
+        const name = promptFn(PATTERN_PROMPTS.name, current.name || '');
         if (name === null) return null;
 
-        const source = promptFn('Regex source', current.source || '');
+        const source = promptFn(PATTERN_PROMPTS.source, current.source || '');
         if (source === null) return null;
 
-        const flags = promptFn('Regex flags', current.flags || '');
+        const flags = promptFn(PATTERN_PROMPTS.flags, current.flags || '');
         if (flags === null) return null;
 
-        const severity = promptFn('Severity', current.severity || 'normal');
+        const severity = promptFn(PATTERN_PROMPTS.severity, current.severity || 'normal');
         if (severity === null) return null;
 
         const config = {
@@ -518,7 +524,7 @@
         if (compiled.errors.length > 0 || compiled.patterns.length !== 1) {
             showPromptMessage(
                 promptFn,
-                `Invalid regex input. ${compiled.errors[0]?.message || 'Check the keyword fields and try again.'}`
+                `Invalid regex input. ${compiled.errors[0]?.message || 'Check the regex source and flags, then try again.'}`
             );
             return null;
         }
