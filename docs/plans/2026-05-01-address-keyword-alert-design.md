@@ -157,5 +157,6 @@ Primary scenarios:
 ## Implementation Notes
 
 - Keep the script standalone at repo root like the existing userscripts.
+- Use the filename `keyword-alert.js`.
 - Preserve Tampermonkey metadata block style used in the repo.
 - Update `readme.md` when the script is added because repo instructions require documentation updates for new scripts.

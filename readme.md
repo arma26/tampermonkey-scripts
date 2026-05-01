@@ -44,3 +44,11 @@ Pretty much everything is vibe coded, I don't like javascript.
 - adds a small section heading above the promoted orders
 - moves matching orders into a dedicated top section instead of duplicating them
 - reruns automatically as Amazon hydrates or updates the order list
+
+# Keyword Alert
+
+- scans all webpages for configured regex matches in visible page text and editable fields
+- shows a blocking popup when configured patterns match
+- uses stronger warning copy on checkout, order, shipping, billing, address, and profile-like pages
+- is designed to tolerate SPA updates and infinite-scroll DOM churn without repeated identical popups
+- configure the regex patterns by editing the `CONFIG.patterns` array in `keyword-alert.js`
