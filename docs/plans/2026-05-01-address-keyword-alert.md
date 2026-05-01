@@ -1,8 +1,8 @@
-# Address Keyword Alert Implementation Plan
+# Keyword Alert Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
-**Goal:** Build a Tampermonkey userscript that scans visible page text and editable form fields for configured address-related regex matches and shows a blocking popup, with stronger treatment on checkout-like pages.
+**Goal:** Build a Tampermonkey userscript that scans visible page text and editable form fields for configured regex matches and shows a blocking popup, with stronger treatment on high-risk pages.
 
 **Architecture:** Add one standalone userscript at repo root with a small set of focused helpers for text collection, page classification, matching, modal rendering, and debounced rescanning. Keep configuration in a top-level constant and validate behavior through scenario-based manual checks rather than adding test infrastructure that the repo does not currently use.
 
@@ -26,7 +26,7 @@ Write `keyword-alert.js` with:
 // @name         Keyword Alert
 // @namespace    http://tampermonkey.net/
 // @version      0.1
-// @description  Alert when configured address regexes appear on webpages
+// @description  Alert when configured keyword regexes appear on webpages
 // @match        *://*/*
 // @grant        none
 // ==/UserScript==
@@ -36,11 +36,11 @@ Write `keyword-alert.js` with:
 
     const CONFIG = {
         patterns: [
-            { name: 'Old Street', regex: /123 Old Street/i, severity: 'high' }
+            { name: 'Target Phrase', regex: /example phrase/i, severity: 'high' }
         ],
         checkoutSignals: {
-            url: [/checkout/i, /cart/i, /address/i, /order/i, /shipping/i, /billing/i, /profile/i],
-            text: [/place order/i, /shipping address/i, /delivery address/i, /billing address/i]
+            url: [/checkout/i, /cart/i, /order/i, /shipping/i, /billing/i, /profile/i, /account/i],
+            text: [/place order/i, /shipping/i, /delivery/i, /billing/i, /account/i]
         },
         rescanDebounceMs: 250,
         maxCollectedTextLength: 50000,
@@ -69,7 +69,7 @@ Check that:
 
 ```bash
 git add keyword-alert.js readme.md
-git commit -m "feat: scaffold address keyword alert userscript"
+git commit -m "feat: scaffold keyword alert userscript"
 ```
 
 ### Task 2: Implement Text Collection Helpers
@@ -83,7 +83,7 @@ Add a short comment block near the helper section:
 
 ```js
 // Scenario target:
-// - visible old address text should be collected
+// - visible matching text should be collected
 // - hidden/script/style content should be ignored
 ```
 
@@ -129,7 +129,7 @@ Expected shape:
 ```js
 function collectEditableFieldText() {
     return [
-        { source: 'input', label: 'Shipping address', text: '...' }
+        { source: 'input', label: 'Primary field', text: '...' }
     ];
 }
 ```
@@ -268,7 +268,7 @@ Expected: one modal at a time, no duplicate overlays.
 
 ```bash
 git add keyword-alert.js
-git commit -m "feat: add blocking alert modal for address matches"
+git commit -m "feat: add blocking alert modal for keyword matches"
 ```
 
 ### Task 5: Add Rescanning, SPA Tolerance, and Infinite-Scroll Safety
@@ -359,7 +359,7 @@ Expected: no syntax errors.
 
 Verify these scenarios in the browser:
 
-1. Matching visible address text triggers popup.
+1. Matching visible text triggers popup.
 2. Matching editable field value triggers popup.
 3. Non-matching page stays quiet.
 4. Checkout-like page uses stronger styling.
@@ -374,5 +374,5 @@ Check that no fully qualified local paths or other PII leaked into tracked files
 
 ```bash
 git add keyword-alert.js readme.md
-git commit -m "docs: finalize address keyword alert usage notes"
+git commit -m "docs: finalize keyword alert usage notes"
 ```

@@ -49,6 +49,6 @@ Pretty much everything is vibe coded, I don't like javascript.
 
 - scans all webpages for configured regex matches in visible page text and editable fields
 - shows a blocking popup when configured patterns match
-- uses stronger warning copy on checkout, order, shipping, billing, address, and profile-like pages
+- uses stronger warning copy on checkout, order, shipping, billing, profile, and account-like pages
 - is designed to tolerate SPA updates and infinite-scroll DOM churn without repeated identical popups
 - configure the regex patterns by editing the `CONFIG.patterns` array in `keyword-alert.js`

@@ -2,7 +2,7 @@
 // @name         Keyword Alert
 // @namespace    http://tampermonkey.net/
 // @version      0.1
-// @description  Alert when configured address regexes appear on webpages
+// @description  Alert when configured keyword regexes appear on webpages
 // @match        *://*/*
 // @grant        none
 // ==/UserScript==
@@ -12,12 +12,12 @@
 
     const CONFIG = {
         patterns: [
-            { name: 'Old Address', regex: /123 Old Street/i, severity: 'high' },
-            { name: 'Old ZIP', regex: /\b90001\b/i, severity: 'high' }
+            { name: 'Target Phrase', regex: /example phrase/i, severity: 'high' },
+            { name: 'Target Code', regex: /\b4242\b/i, severity: 'high' }
         ],
         checkoutSignals: {
-            url: [/checkout/i, /cart/i, /address/i, /order/i, /shipping/i, /billing/i, /profile/i],
-            text: [/place order/i, /shipping address/i, /delivery address/i, /billing address/i]
+            url: [/checkout/i, /cart/i, /order/i, /shipping/i, /billing/i, /profile/i, /account/i],
+            text: [/place order/i, /shipping/i, /delivery/i, /billing/i, /account/i]
         },
         rescanDebounceMs: 250,
         maxCollectedTextLength: 50000,
@@ -510,6 +510,20 @@
         }).join('');
     }
 
+    function getAlertContent(context) {
+        if (context.isCheckoutLike) {
+            return {
+                title: 'Keyword match warning on a high-risk page',
+                subtitle: 'Configured patterns matched on a page that looks related to checkout, orders, billing, shipping, profile management, or account changes.'
+            };
+        }
+
+        return {
+            title: 'Keyword match warning',
+            subtitle: 'Configured patterns matched visible page text or editable fields on this page.'
+        };
+    }
+
     function showModal(matches, context, fingerprint) {
         injectStyles();
         ensureModalRoot();
@@ -524,12 +538,9 @@
 
         currentFingerprint = fingerprint;
         modal.dataset.context = context.isCheckoutLike ? 'checkout' : 'generic';
-        title.textContent = context.isCheckoutLike
-            ? 'Address warning on a checkout-like page'
-            : 'Address warning';
-        subtitle.textContent = context.isCheckoutLike
-            ? 'Configured patterns matched on a page that looks related to checkout, orders, shipping, billing, or profile management.'
-            : 'Configured patterns matched visible page text or editable fields on this page.';
+        const alertContent = getAlertContent(context);
+        title.textContent = alertContent.title;
+        subtitle.textContent = alertContent.subtitle;
         body.innerHTML = renderMatchGroups(matches);
         overlay.classList.add('is-visible');
     }
@@ -658,7 +669,8 @@
         normalizeWhitespace,
         detectCheckoutContext,
         findMatches,
-        buildMatchFingerprint
+        buildMatchFingerprint,
+        getAlertContent
     };
 
     if (typeof module !== 'undefined' && module.exports) {

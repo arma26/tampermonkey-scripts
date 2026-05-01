@@ -1,8 +1,8 @@
-# Address Keyword Alert Design
+# Keyword Alert Design
 
 ## Goal
 
-Create a Tampermonkey userscript that runs on all webpages, detects configured address-related regex matches in visible page text and editable form fields, and shows an unmistakable popup when matches are found so old addresses are not used accidentally during ordering flows.
+Create a Tampermonkey userscript that runs on all webpages, detects configured regex matches in visible page text and editable form fields, and shows an unmistakable popup when matches are found.
 
 ## Scope
 
@@ -10,7 +10,7 @@ Create a Tampermonkey userscript that runs on all webpages, detects configured a
 - Uses user-authored JavaScript regular expressions.
 - Scans visible page text plus editable form values.
 - Shows a blocking modal popup when configured patterns match.
-- Applies stronger styling and wording on checkout-like or profile/address-management pages.
+- Applies stronger styling and wording on high-risk pages such as checkout, order, billing, shipping, and profile-management flows.
 - Tolerates SPA updates and infinite-scroll DOM churn without throwing errors or reopening the same alert endlessly.
 
 ## Non-Goals
@@ -33,11 +33,11 @@ Proposed configuration shape:
 ```js
 const CONFIG = {
     patterns: [
-        { name: 'Old Street', regex: /123 Old Street/i, severity: 'high' }
+        { name: 'Target Phrase', regex: /example phrase/i, severity: 'high' }
     ],
     checkoutSignals: {
-        url: [/checkout/i, /cart/i, /address/i, /order/i, /shipping/i, /billing/i],
-        text: [/place order/i, /shipping address/i, /delivery address/i, /billing address/i]
+        url: [/checkout/i, /cart/i, /order/i, /shipping/i, /billing/i, /profile/i, /account/i],
+        text: [/place order/i, /shipping/i, /delivery/i, /billing/i, /account/i]
     },
     rescanDebounceMs: 250,
     maxCollectedTextLength: 50000,
@@ -81,15 +81,15 @@ The script distinguishes between generic pages and checkout-like pages.
 
 Checkout-like context is inferred from:
 
-- URL patterns such as `checkout`, `cart`, `shipping`, `billing`, `address`, `order`, `profile`
-- visible labels such as `shipping address`, `delivery`, `place order`, `billing address`
+- URL patterns such as `checkout`, `cart`, `shipping`, `billing`, `order`, `profile`, `account`
+- visible labels such as `shipping`, `delivery`, `place order`, `billing`, `account`
 
 This classification affects presentation only. The scanner still runs globally.
 
 ## Alert Behavior
 
 - On any page with a match, show a blocking modal popup.
-- On checkout-like or profile/address pages, use stronger styling and wording.
+- On checkout-like or other high-risk pages, use stronger styling and wording.
 - The modal lists:
   - the pattern name
   - short snippets showing what matched
@@ -136,7 +136,7 @@ Expected behavior on infinite-scroll pages:
 
 ## Known Limitations
 
-- Cross-origin iframes may contain address text the script cannot inspect.
+- Cross-origin iframes may contain matching text the script cannot inspect.
 - Aggressive regexes can overmatch and create noise.
 - Some sites render state in inaccessible shadow DOM or inside components that are difficult to classify perfectly.
 
@@ -146,10 +146,10 @@ This repo favors scenario-based validation over test infrastructure for userscri
 
 Primary scenarios:
 
-1. Old address appears in plain visible text on a generic page and triggers the popup.
-2. Old address is entered or autofilled into an editable field and triggers the popup.
+1. A configured target phrase appears in plain visible text on a generic page and triggers the popup.
+2. A configured target phrase is entered or autofilled into an editable field and triggers the popup.
 3. A non-matching page does not alert.
-4. A SPA checkout updates an address block after initial load and still triggers the popup.
+4. A SPA checkout updates a matching block after initial load and still triggers the popup.
 5. Repeated DOM churn does not reopen the same popup endlessly.
 6. Checkout-like pages use stronger wording and styling than generic pages.
 7. Infinite-scroll-like DOM changes do not cause exceptions or runaway rescans.
