@@ -4,7 +4,8 @@
 // @version      0.1
 // @description  Alert when configured keyword regexes appear on webpages
 // @match        *://*/*
-// @grant        none
+// @grant        GM_getValue
+// @grant        GM_setValue
 // ==/UserScript==
 
 (function () {
