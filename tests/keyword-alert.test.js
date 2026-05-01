@@ -147,6 +147,28 @@ test('loadPatternConfigs uses stored configs when GM_getValue is available', () 
     }
 });
 
+test('loadPatternConfigs falls back to defaults for an empty stored array', () => {
+    global.GM_getValue = () => [];
+
+    try {
+        assert.deepEqual(loadPatternConfigs(), getDefaultPatternConfigs());
+    } finally {
+        delete global.GM_getValue;
+    }
+});
+
+test('loadPatternConfigs falls back to defaults for invalid stored configs', () => {
+    global.GM_getValue = () => [
+        { name: 'Broken', source: '(', flags: '' }
+    ];
+
+    try {
+        assert.deepEqual(loadPatternConfigs(), getDefaultPatternConfigs());
+    } finally {
+        delete global.GM_getValue;
+    }
+});
+
 test('savePatternConfigs uses GM_setValue when available', () => {
     const savedCalls = [];
     const patternConfigs = [

@@ -71,7 +71,12 @@
         if (!getter) return defaults;
 
         const storedValue = getter(PATTERN_STORAGE_KEY, defaults);
-        return Array.isArray(storedValue) ? storedValue : defaults;
+        if (!Array.isArray(storedValue) || storedValue.length === 0) {
+            return defaults;
+        }
+
+        const compiledStored = compilePatternConfigs(storedValue);
+        return compiledStored.patterns.length > 0 ? storedValue : defaults;
     }
 
     function savePatternConfigs(patternConfigs) {
