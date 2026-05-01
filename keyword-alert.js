@@ -91,10 +91,24 @@
         setter(PATTERN_STORAGE_KEY, Array.isArray(patternConfigs) ? patternConfigs : []);
     }
 
-    const compiledDefaultPatterns = compilePatternConfigs(getDefaultPatternConfigs()).patterns;
+    function createRuntimePatterns(compiledResult) {
+        return {
+            patternConfigs: compiledResult.patterns.map(pattern => ({
+                name: pattern.name,
+                source: pattern.source,
+                flags: pattern.flags,
+                severity: pattern.severity
+            })),
+            patterns: compiledResult.patterns,
+            errors: compiledResult.errors
+        };
+    }
+
+    function getDefaultRuntimePatterns() {
+        return createRuntimePatterns(compilePatternConfigs(getDefaultPatternConfigs()));
+    }
 
     const CONFIG = {
-        patterns: compiledDefaultPatterns,
         checkoutSignals: {
             url: [/checkout/i, /cart/i, /order/i, /shipping/i, /billing/i, /profile/i, /account/i],
             text: [/place order/i, /shipping/i, /delivery/i, /billing/i, /account/i]
@@ -137,6 +151,7 @@
     let rescanRequested = false;
     let currentFingerprint = '';
     let dismissedFingerprint = '';
+    let runtimePatterns = getDefaultRuntimePatterns();
 
     function normalizeWhitespace(text) {
         return String(text || '').replace(/\s+/g, ' ').trim();
@@ -390,7 +405,7 @@
         return deduped;
     }
 
-    function findMatches(visibleTextResult, fieldEntries, patterns = CONFIG.patterns, maxSnippetLength = CONFIG.maxSnippetLength) {
+    function findMatches(visibleTextResult, fieldEntries, patterns = runtimePatterns.patterns, maxSnippetLength = CONFIG.maxSnippetLength) {
         const matches = [];
 
         for (const pattern of patterns) {
@@ -415,6 +430,27 @@
         }
 
         return matches;
+    }
+
+    function refreshRuntimePatterns() {
+        const loadedConfigs = loadPatternConfigs();
+        const compiled = compilePatternConfigs(loadedConfigs);
+
+        runtimePatterns = (
+            compiled.errors.length === 0 && compiled.patterns.length > 0
+                ? createRuntimePatterns(compiled)
+                : getDefaultRuntimePatterns()
+        );
+
+        return runtimePatterns;
+    }
+
+    function getRuntimePatterns() {
+        return runtimePatterns;
+    }
+
+    function findRuntimeMatches(visibleTextResult, fieldEntries, maxSnippetLength = CONFIG.maxSnippetLength) {
+        return findMatches(visibleTextResult, fieldEntries, runtimePatterns.patterns, maxSnippetLength);
     }
 
     function injectStyles() {
@@ -644,7 +680,7 @@
             const visibleText = collectVisibleText();
             const fieldEntries = collectEditableFieldText();
             const context = detectCheckoutContext(window.location.href, visibleText.text);
-            const matches = findMatches(visibleText, fieldEntries);
+            const matches = findRuntimeMatches(visibleText, fieldEntries);
 
             if (!matches.length) {
                 currentFingerprint = '';
@@ -739,6 +775,7 @@
     function init() {
         if (!document.body || !document.head) return;
 
+        refreshRuntimePatterns();
         scheduleScan();
         observeDocument();
         observeInputs();
@@ -754,7 +791,10 @@
         getDefaultPatternConfigs,
         compilePatternConfigs,
         loadPatternConfigs,
-        savePatternConfigs
+        savePatternConfigs,
+        getRuntimePatterns,
+        refreshRuntimePatterns,
+        findRuntimeMatches
     };
 
     if (typeof module !== 'undefined' && module.exports) {

@@ -10,7 +10,10 @@ const {
     getDefaultPatternConfigs,
     compilePatternConfigs,
     loadPatternConfigs,
-    savePatternConfigs
+    savePatternConfigs,
+    getRuntimePatterns,
+    refreshRuntimePatterns,
+    findRuntimeMatches
 } = require('../keyword-alert.js');
 
 test('detectCheckoutContext marks checkout-like pages from url and text', () => {
@@ -201,4 +204,28 @@ test('savePatternConfigs uses GM_setValue when available', () => {
     assert.deepEqual(savedCalls, [
         { key: 'keyword-alert-patterns', value: patternConfigs }
     ]);
+});
+
+test('findRuntimeMatches uses refreshed storage-backed patterns', () => {
+    global.GM_getValue = () => [
+        { name: 'Stored Phrase', source: 'stored value', flags: 'i', severity: 'high' }
+    ];
+
+    try {
+        refreshRuntimePatterns();
+
+        const runtime = getRuntimePatterns();
+        const matches = findRuntimeMatches(
+            { text: 'This page contains stored value only.' },
+            []
+        );
+
+        assert.equal(runtime.patterns.length, 1);
+        assert.equal(runtime.patterns[0].name, 'Stored Phrase');
+        assert.equal(matches.length, 1);
+        assert.equal(matches[0].name, 'Stored Phrase');
+    } finally {
+        delete global.GM_getValue;
+        refreshRuntimePatterns();
+    }
 });
