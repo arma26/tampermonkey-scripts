@@ -256,8 +256,8 @@ test('promptForPatternConfig returns a serializable pattern config for valid pro
     });
 });
 
-test('promptForPatternConfig rejects invalid regex input with alert feedback', () => {
-    const alerts = [];
+test('promptForPatternConfig rejects invalid regex input with prompt feedback', () => {
+    const promptMessages = [];
     const prompts = [
         'Broken Pattern',
         '(',
@@ -266,13 +266,18 @@ test('promptForPatternConfig rejects invalid regex input with alert feedback', (
     ];
 
     const config = promptForPatternConfig(null, {
-        prompt: () => prompts.shift(),
-        alert: message => alerts.push(message)
+        prompt: message => {
+            promptMessages.push(message);
+            return prompts.shift();
+        },
+        alert: () => {
+            throw new Error('alert should not be called');
+        }
     });
 
     assert.equal(config, null);
-    assert.equal(alerts.length, 1);
-    assert.match(alerts[0], /invalid regex/i);
+    assert.equal(promptMessages.length, 5);
+    assert.match(promptMessages[4], /invalid regex/i);
 });
 
 test('createMenuHandlers addKeyword saves refreshes and schedules a rescan', () => {
@@ -331,6 +336,64 @@ test('createMenuHandlers resetKeywords respects cancellation', () => {
     handlers.resetKeywords();
 
     assert.deepEqual(callLog, []);
+});
+
+test('createMenuHandlers listKeywords uses prompt instead of alert', () => {
+    const promptMessages = [];
+    const handlers = createMenuHandlers({
+        loadPatternConfigs: () => [
+            { name: 'Stored Phrase', source: 'stored value', flags: 'i', severity: 'high' }
+        ],
+        prompt: message => {
+            promptMessages.push(message);
+            return null;
+        },
+        alert: () => {
+            throw new Error('alert should not be called');
+        },
+        confirm: () => true
+    });
+
+    handlers.listKeywords();
+
+    assert.equal(promptMessages.length, 1);
+    assert.match(promptMessages[0], /Stored Phrase/);
+});
+
+test('createMenuHandlers editKeyword reports invalid index through prompt', () => {
+    const promptMessages = [];
+    const promptReplies = ['9', null];
+    const handlers = createMenuHandlers({
+        loadPatternConfigs: () => [
+            { name: 'Stored Phrase', source: 'stored value', flags: 'i', severity: 'high' }
+        ],
+        savePatternConfigs: () => {
+            throw new Error('save should not be called');
+        },
+        refreshRuntimePatterns: () => {
+            throw new Error('refresh should not be called');
+        },
+        scheduleScan: () => {
+            throw new Error('scan should not be called');
+        },
+        prompt: message => {
+            promptMessages.push(message);
+            return promptReplies.shift();
+        },
+        promptForPatternConfig: () => {
+            throw new Error('promptForPatternConfig should not be called');
+        },
+        alert: () => {
+            throw new Error('alert should not be called');
+        },
+        confirm: () => true
+    });
+
+    handlers.editKeyword();
+
+    assert.equal(promptMessages.length, 2);
+    assert.match(promptMessages[0], /Enter the keyword number/i);
+    assert.match(promptMessages[1], /Invalid keyword number/i);
 });
 
 test('registerMenuCommands registers each label once', () => {

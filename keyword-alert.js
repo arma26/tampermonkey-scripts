@@ -482,9 +482,13 @@
         return patternConfigs.map(formatPatternConfig).join('\n');
     }
 
+    function showPromptMessage(promptFn, message) {
+        if (typeof promptFn !== 'function') return;
+        promptFn(message, '');
+    }
+
     function promptForPatternConfig(existingConfig = null, options = {}) {
         const promptFn = typeof options.prompt === 'function' ? options.prompt : globalThis.prompt;
-        const alertFn = typeof options.alert === 'function' ? options.alert : globalThis.alert;
 
         if (typeof promptFn !== 'function') return null;
 
@@ -509,7 +513,10 @@
         };
         const compiled = compilePatternConfigs([config]);
         if (compiled.errors.length > 0 || compiled.patterns.length !== 1) {
-            alertFn?.(`Invalid regex input. ${compiled.errors[0]?.message || 'Check the keyword fields and try again.'}`);
+            showPromptMessage(
+                promptFn,
+                `Invalid regex input. ${compiled.errors[0]?.message || 'Check the keyword fields and try again.'}`
+            );
             return null;
         }
 
@@ -518,10 +525,9 @@
 
     function selectPatternConfigIndex(patternConfigs, actionLabel, options = {}) {
         const promptFn = typeof options.prompt === 'function' ? options.prompt : globalThis.prompt;
-        const alertFn = typeof options.alert === 'function' ? options.alert : globalThis.alert;
 
         if (!Array.isArray(patternConfigs) || patternConfigs.length === 0) {
-            alertFn?.('No keywords configured.');
+            showPromptMessage(promptFn, 'No keywords configured.');
             return -1;
         }
 
@@ -535,7 +541,7 @@
 
         const index = Number.parseInt(String(response).trim(), 10);
         if (!Number.isInteger(index) || index < 1 || index > patternConfigs.length) {
-            alertFn?.('Invalid keyword number.');
+            showPromptMessage(promptFn, 'Invalid keyword number.');
             return -1;
         }
 
@@ -565,11 +571,10 @@
         const promptForPatternConfigFn = typeof options.promptForPatternConfig === 'function'
             ? options.promptForPatternConfig
             : promptForPatternConfig;
+        const promptFn = typeof options.prompt === 'function' ? options.prompt : globalThis.prompt;
         const confirmFn = typeof options.confirm === 'function' ? options.confirm : globalThis.confirm;
-        const alertFn = typeof options.alert === 'function' ? options.alert : globalThis.alert;
         const selectionOptions = {
-            prompt: options.prompt,
-            alert: alertFn
+            prompt: promptFn
         };
         const mutationOptions = {
             savePatternConfigs: options.savePatternConfigs,
@@ -579,13 +584,12 @@
 
         return {
             listKeywords() {
-                alertFn?.(formatPatternConfigList(loadPatternConfigsFn()));
+                showPromptMessage(promptFn, formatPatternConfigList(loadPatternConfigsFn()));
             },
             addKeyword() {
                 const patternConfigs = loadPatternConfigsFn();
                 const nextConfig = promptForPatternConfigFn(null, {
-                    prompt: options.prompt,
-                    alert: alertFn
+                    prompt: promptFn
                 });
                 if (!nextConfig) return;
 
@@ -597,8 +601,7 @@
                 if (index < 0) return;
 
                 const nextConfig = promptForPatternConfigFn(patternConfigs[index], {
-                    prompt: options.prompt,
-                    alert: alertFn
+                    prompt: promptFn
                 });
                 if (!nextConfig) return;
 
