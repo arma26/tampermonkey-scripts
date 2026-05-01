@@ -6,12 +6,20 @@
 // @match        *://*/*
 // @grant        GM_getValue
 // @grant        GM_setValue
+// @grant        GM_registerMenuCommand
 // ==/UserScript==
 
 (function () {
     'use strict';
 
     const PATTERN_STORAGE_KEY = 'keyword-alert-patterns';
+    const MENU_COMMAND_DEFINITIONS = [
+        ['List keywords', 'listKeywords'],
+        ['Add keyword', 'addKeyword'],
+        ['Edit keyword', 'editKeyword'],
+        ['Remove keyword', 'removeKeyword'],
+        ['Reset keywords to defaults', 'resetKeywords']
+    ];
 
     function getDefaultPatternConfigs() {
         return [
@@ -64,6 +72,12 @@
 
     function getTampermonkeyValueSetter() {
         return typeof globalThis.GM_setValue === 'function' ? globalThis.GM_setValue : null;
+    }
+
+    function getTampermonkeyMenuRegistrar() {
+        return typeof globalThis.GM_registerMenuCommand === 'function'
+            ? globalThis.GM_registerMenuCommand
+            : null;
     }
 
     function loadPatternConfigs() {
@@ -152,6 +166,7 @@
     let currentFingerprint = '';
     let dismissedFingerprint = '';
     let runtimePatterns = getDefaultRuntimePatterns();
+    let menuCommandsRegistered = false;
 
     function normalizeWhitespace(text) {
         return String(text || '').replace(/\s+/g, ' ').trim();
@@ -451,6 +466,189 @@
 
     function findRuntimeMatches(visibleTextResult, fieldEntries, maxSnippetLength = CONFIG.maxSnippetLength) {
         return findMatches(visibleTextResult, fieldEntries, runtimePatterns.patterns, maxSnippetLength);
+    }
+
+    function formatPatternConfig(config, index) {
+        const flags = config.flags || '';
+        const severity = config.severity || 'normal';
+        return `${index + 1}. ${config.name} /${config.source}/${flags} [${severity}]`;
+    }
+
+    function formatPatternConfigList(patternConfigs) {
+        if (!Array.isArray(patternConfigs) || patternConfigs.length === 0) {
+            return 'No keywords configured.';
+        }
+
+        return patternConfigs.map(formatPatternConfig).join('\n');
+    }
+
+    function promptForPatternConfig(existingConfig = null, options = {}) {
+        const promptFn = typeof options.prompt === 'function' ? options.prompt : globalThis.prompt;
+        const alertFn = typeof options.alert === 'function' ? options.alert : globalThis.alert;
+
+        if (typeof promptFn !== 'function') return null;
+
+        const current = existingConfig || {};
+        const name = promptFn('Keyword name', current.name || '');
+        if (name === null) return null;
+
+        const source = promptFn('Regex source', current.source || '');
+        if (source === null) return null;
+
+        const flags = promptFn('Regex flags', current.flags || '');
+        if (flags === null) return null;
+
+        const severity = promptFn('Severity', current.severity || 'normal');
+        if (severity === null) return null;
+
+        const config = {
+            name: name.trim(),
+            source,
+            flags: flags.trim(),
+            severity: severity.trim() || 'normal'
+        };
+        const compiled = compilePatternConfigs([config]);
+        if (compiled.errors.length > 0 || compiled.patterns.length !== 1) {
+            alertFn?.(`Invalid regex input. ${compiled.errors[0]?.message || 'Check the keyword fields and try again.'}`);
+            return null;
+        }
+
+        return config;
+    }
+
+    function selectPatternConfigIndex(patternConfigs, actionLabel, options = {}) {
+        const promptFn = typeof options.prompt === 'function' ? options.prompt : globalThis.prompt;
+        const alertFn = typeof options.alert === 'function' ? options.alert : globalThis.alert;
+
+        if (!Array.isArray(patternConfigs) || patternConfigs.length === 0) {
+            alertFn?.('No keywords configured.');
+            return -1;
+        }
+
+        if (typeof promptFn !== 'function') return -1;
+
+        const response = promptFn(
+            `${actionLabel}\n\n${formatPatternConfigList(patternConfigs)}\n\nEnter the keyword number:`,
+            '1'
+        );
+        if (response === null) return -1;
+
+        const index = Number.parseInt(String(response).trim(), 10);
+        if (!Number.isInteger(index) || index < 1 || index > patternConfigs.length) {
+            alertFn?.('Invalid keyword number.');
+            return -1;
+        }
+
+        return index - 1;
+    }
+
+    function applyPatternConfigMutation(patternConfigs, options = {}) {
+        const savePatternConfigsFn = typeof options.savePatternConfigs === 'function'
+            ? options.savePatternConfigs
+            : savePatternConfigs;
+        const refreshRuntimePatternsFn = typeof options.refreshRuntimePatterns === 'function'
+            ? options.refreshRuntimePatterns
+            : refreshRuntimePatterns;
+        const scheduleScanFn = typeof options.scheduleScan === 'function'
+            ? options.scheduleScan
+            : scheduleScan;
+
+        savePatternConfigsFn(patternConfigs);
+        refreshRuntimePatternsFn();
+        scheduleScanFn();
+    }
+
+    function createMenuHandlers(options = {}) {
+        const loadPatternConfigsFn = typeof options.loadPatternConfigs === 'function'
+            ? options.loadPatternConfigs
+            : loadPatternConfigs;
+        const promptForPatternConfigFn = typeof options.promptForPatternConfig === 'function'
+            ? options.promptForPatternConfig
+            : promptForPatternConfig;
+        const confirmFn = typeof options.confirm === 'function' ? options.confirm : globalThis.confirm;
+        const alertFn = typeof options.alert === 'function' ? options.alert : globalThis.alert;
+        const selectionOptions = {
+            prompt: options.prompt,
+            alert: alertFn
+        };
+        const mutationOptions = {
+            savePatternConfigs: options.savePatternConfigs,
+            refreshRuntimePatterns: options.refreshRuntimePatterns,
+            scheduleScan: options.scheduleScan
+        };
+
+        return {
+            listKeywords() {
+                alertFn?.(formatPatternConfigList(loadPatternConfigsFn()));
+            },
+            addKeyword() {
+                const patternConfigs = loadPatternConfigsFn();
+                const nextConfig = promptForPatternConfigFn(null, {
+                    prompt: options.prompt,
+                    alert: alertFn
+                });
+                if (!nextConfig) return;
+
+                applyPatternConfigMutation([...patternConfigs, nextConfig], mutationOptions);
+            },
+            editKeyword() {
+                const patternConfigs = loadPatternConfigsFn();
+                const index = selectPatternConfigIndex(patternConfigs, 'Edit keyword', selectionOptions);
+                if (index < 0) return;
+
+                const nextConfig = promptForPatternConfigFn(patternConfigs[index], {
+                    prompt: options.prompt,
+                    alert: alertFn
+                });
+                if (!nextConfig) return;
+
+                const updatedConfigs = patternConfigs.slice();
+                updatedConfigs[index] = nextConfig;
+                applyPatternConfigMutation(updatedConfigs, mutationOptions);
+            },
+            removeKeyword() {
+                const patternConfigs = loadPatternConfigsFn();
+                const index = selectPatternConfigIndex(patternConfigs, 'Remove keyword', selectionOptions);
+                if (index < 0) return;
+
+                const target = patternConfigs[index];
+                if (typeof confirmFn === 'function' && !confirmFn(`Remove keyword "${target.name}"?`)) {
+                    return;
+                }
+
+                const updatedConfigs = patternConfigs.slice();
+                updatedConfigs.splice(index, 1);
+                applyPatternConfigMutation(updatedConfigs, mutationOptions);
+            },
+            resetKeywords() {
+                if (typeof confirmFn === 'function' && !confirmFn('Reset keywords to defaults?')) {
+                    return;
+                }
+
+                applyPatternConfigMutation(getDefaultPatternConfigs(), mutationOptions);
+            }
+        };
+    }
+
+    function registerMenuCommands(options = {}) {
+        if (options.resetRegistrationState) {
+            menuCommandsRegistered = false;
+        }
+
+        if (menuCommandsRegistered) return false;
+
+        const registerCommand = typeof options.registerCommand === 'function'
+            ? options.registerCommand
+            : getTampermonkeyMenuRegistrar();
+        if (typeof registerCommand !== 'function') return false;
+
+        const handlers = options.handlers || createMenuHandlers();
+        for (const [label, handlerName] of MENU_COMMAND_DEFINITIONS) {
+            registerCommand(label, handlers[handlerName]);
+        }
+
+        menuCommandsRegistered = true;
+        return true;
     }
 
     function injectStyles() {
@@ -776,6 +974,7 @@
         if (!document.body || !document.head) return;
 
         refreshRuntimePatterns();
+        registerMenuCommands();
         scheduleScan();
         observeDocument();
         observeInputs();
@@ -794,7 +993,10 @@
         savePatternConfigs,
         getRuntimePatterns,
         refreshRuntimePatterns,
-        findRuntimeMatches
+        findRuntimeMatches,
+        promptForPatternConfig,
+        createMenuHandlers,
+        registerMenuCommands
     };
 
     if (typeof module !== 'undefined' && module.exports) {

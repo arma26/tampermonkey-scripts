@@ -13,7 +13,10 @@ const {
     savePatternConfigs,
     getRuntimePatterns,
     refreshRuntimePatterns,
-    findRuntimeMatches
+    findRuntimeMatches,
+    promptForPatternConfig,
+    createMenuHandlers,
+    registerMenuCommands
 } = require('../keyword-alert.js');
 
 test('detectCheckoutContext marks checkout-like pages from url and text', () => {
@@ -228,4 +231,136 @@ test('findRuntimeMatches uses refreshed storage-backed patterns', () => {
         delete global.GM_getValue;
         refreshRuntimePatterns();
     }
+});
+
+test('promptForPatternConfig returns a serializable pattern config for valid prompts', () => {
+    const prompts = [
+        'Stored Phrase',
+        'stored value',
+        'gi',
+        'high'
+    ];
+
+    const config = promptForPatternConfig(null, {
+        prompt: () => prompts.shift(),
+        alert: () => {
+            throw new Error('alert should not be called');
+        }
+    });
+
+    assert.deepEqual(config, {
+        name: 'Stored Phrase',
+        source: 'stored value',
+        flags: 'gi',
+        severity: 'high'
+    });
+});
+
+test('promptForPatternConfig rejects invalid regex input with alert feedback', () => {
+    const alerts = [];
+    const prompts = [
+        'Broken Pattern',
+        '(',
+        '',
+        'normal'
+    ];
+
+    const config = promptForPatternConfig(null, {
+        prompt: () => prompts.shift(),
+        alert: message => alerts.push(message)
+    });
+
+    assert.equal(config, null);
+    assert.equal(alerts.length, 1);
+    assert.match(alerts[0], /invalid regex/i);
+});
+
+test('createMenuHandlers addKeyword saves refreshes and schedules a rescan', () => {
+    const savedStates = [];
+    const callLog = [];
+    const handlers = createMenuHandlers({
+        loadPatternConfigs: () => [],
+        savePatternConfigs: configs => {
+            savedStates.push(configs);
+            callLog.push('save');
+        },
+        refreshRuntimePatterns: () => {
+            callLog.push('refresh');
+        },
+        scheduleScan: () => {
+            callLog.push('scan');
+        },
+        promptForPatternConfig: () => ({
+            name: 'Stored Phrase',
+            source: 'stored value',
+            flags: 'i',
+            severity: 'high'
+        }),
+        alert: () => {
+            throw new Error('alert should not be called');
+        },
+        confirm: () => true
+    });
+
+    handlers.addKeyword();
+
+    assert.deepEqual(savedStates, [[
+        { name: 'Stored Phrase', source: 'stored value', flags: 'i', severity: 'high' }
+    ]]);
+    assert.deepEqual(callLog, ['save', 'refresh', 'scan']);
+});
+
+test('createMenuHandlers resetKeywords respects cancellation', () => {
+    const callLog = [];
+    const handlers = createMenuHandlers({
+        loadPatternConfigs: () => [{ name: 'Keep', source: 'keep', flags: 'i', severity: 'normal' }],
+        savePatternConfigs: () => {
+            callLog.push('save');
+        },
+        refreshRuntimePatterns: () => {
+            callLog.push('refresh');
+        },
+        scheduleScan: () => {
+            callLog.push('scan');
+        },
+        promptForPatternConfig: () => null,
+        alert: () => {},
+        confirm: () => false
+    });
+
+    handlers.resetKeywords();
+
+    assert.deepEqual(callLog, []);
+});
+
+test('registerMenuCommands registers each label once', () => {
+    const registrations = [];
+    const handlers = {
+        listKeywords() {},
+        addKeyword() {},
+        editKeyword() {},
+        removeKeyword() {},
+        resetKeywords() {}
+    };
+
+    registerMenuCommands({
+        registerCommand: (label, fn) => registrations.push({ label, fn }),
+        handlers,
+        resetRegistrationState: true
+    });
+    registerMenuCommands({
+        registerCommand: (label, fn) => registrations.push({ label, fn }),
+        handlers
+    });
+
+    assert.deepEqual(
+        registrations.map(entry => entry.label),
+        [
+            'List keywords',
+            'Add keyword',
+            'Edit keyword',
+            'Remove keyword',
+            'Reset keywords to defaults'
+        ]
+    );
 });
