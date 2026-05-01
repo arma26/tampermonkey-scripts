@@ -13,6 +13,7 @@
     'use strict';
 
     const PATTERN_STORAGE_KEY = 'keyword-alert-patterns';
+    const NO_SAVED_PATTERN_CONFIGS = Symbol('no-saved-pattern-configs');
     const MENU_COMMAND_DEFINITIONS = [
         ['List keywords', 'listKeywords'],
         ['Add keyword', 'addKeyword'],
@@ -85,13 +86,15 @@
         const getter = getTampermonkeyValueGetter();
         if (!getter) return defaults;
 
-        const storedValue = getter(PATTERN_STORAGE_KEY, defaults);
-        if (!Array.isArray(storedValue) || storedValue.length === 0) {
+        const storedValue = getter(PATTERN_STORAGE_KEY, NO_SAVED_PATTERN_CONFIGS);
+        if (storedValue === NO_SAVED_PATTERN_CONFIGS) {
             return defaults;
         }
 
+        if (!Array.isArray(storedValue)) return defaults;
+
         const compiledStored = compilePatternConfigs(storedValue);
-        if (compiledStored.errors.length > 0 || compiledStored.patterns.length === 0) {
+        if (compiledStored.errors.length > 0) {
             return defaults;
         }
 
@@ -452,7 +455,7 @@
         const compiled = compilePatternConfigs(loadedConfigs);
 
         runtimePatterns = (
-            compiled.errors.length === 0 && compiled.patterns.length > 0
+            compiled.errors.length === 0
                 ? createRuntimePatterns(compiled)
                 : getDefaultRuntimePatterns()
         );

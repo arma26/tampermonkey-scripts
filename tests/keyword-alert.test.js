@@ -142,7 +142,7 @@ test('loadPatternConfigs uses stored configs when GM_getValue is available', () 
 
     global.GM_getValue = (key, fallbackValue) => {
         assert.equal(key, 'keyword-alert-patterns');
-        assert.deepEqual(fallbackValue, getDefaultPatternConfigs());
+        assert.equal(typeof fallbackValue, 'symbol');
         return storedConfigs;
     };
 
@@ -153,11 +153,11 @@ test('loadPatternConfigs uses stored configs when GM_getValue is available', () 
     }
 });
 
-test('loadPatternConfigs falls back to defaults for an empty stored array', () => {
+test('loadPatternConfigs preserves an intentionally empty stored array', () => {
     global.GM_getValue = () => [];
 
     try {
-        assert.deepEqual(loadPatternConfigs(), getDefaultPatternConfigs());
+        assert.deepEqual(loadPatternConfigs(), []);
     } finally {
         delete global.GM_getValue;
     }
@@ -227,6 +227,26 @@ test('findRuntimeMatches uses refreshed storage-backed patterns', () => {
         assert.equal(runtime.patterns[0].name, 'Stored Phrase');
         assert.equal(matches.length, 1);
         assert.equal(matches[0].name, 'Stored Phrase');
+    } finally {
+        delete global.GM_getValue;
+        refreshRuntimePatterns();
+    }
+});
+
+test('refreshRuntimePatterns preserves an intentionally empty configuration', () => {
+    global.GM_getValue = () => [];
+
+    try {
+        const runtime = refreshRuntimePatterns();
+        const matches = findRuntimeMatches(
+            { text: 'This page contains example phrase and 4242.' },
+            []
+        );
+
+        assert.deepEqual(runtime.patternConfigs, []);
+        assert.deepEqual(runtime.patterns, []);
+        assert.equal(runtime.errors.length, 0);
+        assert.deepEqual(matches, []);
     } finally {
         delete global.GM_getValue;
         refreshRuntimePatterns();
@@ -336,6 +356,37 @@ test('createMenuHandlers resetKeywords respects cancellation', () => {
     handlers.resetKeywords();
 
     assert.deepEqual(callLog, []);
+});
+
+test('createMenuHandlers removeKeyword preserves an empty saved list when removing the final keyword', () => {
+    const savedStates = [];
+    const callLog = [];
+    const promptReplies = ['1'];
+    const handlers = createMenuHandlers({
+        loadPatternConfigs: () => [
+            { name: 'Stored Phrase', source: 'stored value', flags: 'i', severity: 'high' }
+        ],
+        savePatternConfigs: configs => {
+            savedStates.push(configs);
+            callLog.push('save');
+        },
+        refreshRuntimePatterns: () => {
+            callLog.push('refresh');
+        },
+        scheduleScan: () => {
+            callLog.push('scan');
+        },
+        prompt: () => promptReplies.shift(),
+        confirm: () => true,
+        alert: () => {
+            throw new Error('alert should not be called');
+        }
+    });
+
+    handlers.removeKeyword();
+
+    assert.deepEqual(savedStates, [[]]);
+    assert.deepEqual(callLog, ['save', 'refresh', 'scan']);
 });
 
 test('createMenuHandlers listKeywords uses prompt instead of alert', () => {
