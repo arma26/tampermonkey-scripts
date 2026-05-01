@@ -10,11 +10,81 @@
 (function () {
     'use strict';
 
+    const PATTERN_STORAGE_KEY = 'keyword-alert-patterns';
+
+    function getDefaultPatternConfigs() {
+        return [
+            { name: 'Target Phrase', source: 'example phrase', flags: 'i', severity: 'high' },
+            { name: 'Target Code', source: '\\b4242\\b', flags: 'i', severity: 'high' }
+        ];
+    }
+
+    function compilePatternConfigs(configs) {
+        const patterns = [];
+        const errors = [];
+
+        for (const config of Array.isArray(configs) ? configs : []) {
+            if (!config || typeof config !== 'object') {
+                errors.push(new Error('Pattern config must be an object'));
+                continue;
+            }
+
+            const name = typeof config.name === 'string' ? config.name.trim() : '';
+            const source = typeof config.source === 'string' ? config.source : '';
+            const flags = typeof config.flags === 'string' ? config.flags : '';
+            const severity = typeof config.severity === 'string' && config.severity.trim()
+                ? config.severity.trim()
+                : 'normal';
+
+            if (!name || !source) {
+                errors.push(new Error('Pattern config requires non-empty name and source'));
+                continue;
+            }
+
+            try {
+                patterns.push({
+                    name,
+                    source,
+                    flags,
+                    severity,
+                    regex: new RegExp(source, flags)
+                });
+            } catch (error) {
+                errors.push(error instanceof Error ? error : new Error(String(error)));
+            }
+        }
+
+        return { patterns, errors };
+    }
+
+    function getTampermonkeyValueGetter() {
+        return typeof globalThis.GM_getValue === 'function' ? globalThis.GM_getValue : null;
+    }
+
+    function getTampermonkeyValueSetter() {
+        return typeof globalThis.GM_setValue === 'function' ? globalThis.GM_setValue : null;
+    }
+
+    function loadPatternConfigs() {
+        const defaults = getDefaultPatternConfigs();
+        const getter = getTampermonkeyValueGetter();
+        if (!getter) return defaults;
+
+        const storedValue = getter(PATTERN_STORAGE_KEY, defaults);
+        return Array.isArray(storedValue) ? storedValue : defaults;
+    }
+
+    function savePatternConfigs(patternConfigs) {
+        const setter = getTampermonkeyValueSetter();
+        if (!setter) return;
+
+        setter(PATTERN_STORAGE_KEY, Array.isArray(patternConfigs) ? patternConfigs : []);
+    }
+
+    const compiledDefaultPatterns = compilePatternConfigs(getDefaultPatternConfigs()).patterns;
+
     const CONFIG = {
-        patterns: [
-            { name: 'Target Phrase', regex: /example phrase/i, severity: 'high' },
-            { name: 'Target Code', regex: /\b4242\b/i, severity: 'high' }
-        ],
+        patterns: compiledDefaultPatterns,
         checkoutSignals: {
             url: [/checkout/i, /cart/i, /order/i, /shipping/i, /billing/i, /profile/i, /account/i],
             text: [/place order/i, /shipping/i, /delivery/i, /billing/i, /account/i]
@@ -670,7 +740,11 @@
         detectCheckoutContext,
         findMatches,
         buildMatchFingerprint,
-        getAlertContent
+        getAlertContent,
+        getDefaultPatternConfigs,
+        compilePatternConfigs,
+        loadPatternConfigs,
+        savePatternConfigs
     };
 
     if (typeof module !== 'undefined' && module.exports) {
