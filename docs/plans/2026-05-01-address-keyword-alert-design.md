@@ -26,13 +26,13 @@ Use a general DOM text scanner plus editable field watcher. This satisfies the r
 
 ## User Configuration
 
-The first version keeps configuration in a single top-level constant inside the userscript.
+Built-in defaults stay in a top-level constant inside the userscript, but the live pattern list is stored in Tampermonkey storage and managed through menu commands.
 
 Proposed configuration shape:
 
 ```js
 const CONFIG = {
-    patterns: [
+    defaultPatterns: [
         { name: 'Target Phrase', regex: /example phrase/i, severity: 'high' }
     ],
     checkoutSignals: {
@@ -47,9 +47,44 @@ const CONFIG = {
 
 Notes:
 
-- Regexes are authored explicitly by the user as JavaScript `RegExp` literals.
+- Default patterns live in code only as fallback values.
+- Stored patterns use serializable objects such as `{ name, source, flags, severity }`.
+- Runtime matching compiles stored objects into `RegExp` instances.
 - Pattern names are used in the popup so matches can be understood quickly.
 - Severity is optional for v1 but useful if a stronger presentation is needed later.
+
+## Menu-Based Pattern Management
+
+The script adds a minimal Tampermonkey menu system so match targets can be changed without editing the script file.
+
+Required grants:
+
+- `GM_getValue`
+- `GM_setValue`
+- `GM_registerMenuCommand`
+
+Menu commands:
+
+- `List keywords`
+- `Add keyword`
+- `Edit keyword`
+- `Remove keyword`
+- `Reset keywords to defaults`
+
+Interaction model:
+
+- Each command uses `prompt()` and `confirm()` only.
+- `Add` and `Edit` collect `name`, `source`, `flags`, and optional `severity`.
+- `List` shows the current stored patterns in a readable text block.
+- `Remove` selects an existing pattern by number or exact name.
+- `Reset` replaces stored patterns with the built-in defaults after confirmation.
+
+Validation rules:
+
+- Patterns are stored as plain data, never as raw `RegExp` objects.
+- New or edited patterns are compiled immediately to validate them before saving.
+- Invalid patterns are rejected with an alert and do not replace the stored configuration.
+- If stored patterns are missing or malformed, the script falls back to defaults rather than crashing.
 
 ## Detection Rules
 
@@ -108,13 +143,19 @@ Recommended functions:
 - `detectCheckoutContext()`
   - Score the page using URL patterns and visible labels.
 - `findMatches()`
-  - Execute configured regexes against collected sources and return structured matches.
+  - Execute compiled runtime regexes against collected sources and return structured matches.
 - `buildMatchFingerprint()`
   - Create a stable representation of the current match set to suppress duplicate popups.
 - `showModal()`
   - Render the blocking overlay and populate grouped match details.
 - `scheduleScan()`
   - Debounce rescans from DOM mutations, navigation changes, and field edits.
+- `loadPatternConfigs()`
+  - Load serializable pattern data from Tampermonkey storage or fallback defaults.
+- `compilePatternConfigs()`
+  - Validate and transform stored pattern data into runtime `RegExp` objects.
+- `registerMenuCommands()`
+  - Register Tampermonkey menu actions for listing and mutating stored patterns.
 
 ## Performance and Stability
 
@@ -139,6 +180,7 @@ Expected behavior on infinite-scroll pages:
 - Cross-origin iframes may contain matching text the script cannot inspect.
 - Aggressive regexes can overmatch and create noise.
 - Some sites render state in inaccessible shadow DOM or inside components that are difficult to classify perfectly.
+- Tampermonkey menu commands are browser-only and require manual validation in the extension UI.
 
 ## Testing Strategy
 
@@ -153,6 +195,7 @@ Primary scenarios:
 5. Repeated DOM churn does not reopen the same popup endlessly.
 6. Checkout-like pages use stronger wording and styling than generic pages.
 7. Infinite-scroll-like DOM changes do not cause exceptions or runaway rescans.
+8. Adding, editing, removing, and resetting keywords through the Tampermonkey menu updates the active pattern set without editing the script.
 
 ## Implementation Notes
 
