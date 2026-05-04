@@ -30,6 +30,9 @@ Pretty much everything is vibe coded, I don't like javascript.
 
 - replaces the deals card grid on `hfpricetracker.com` with a table by default
 - adds an in-page toggle button to switch between the generated table and the original cards
+- keeps the original page order on first render and lets you sort table columns by clicking the headings
+- places `SKU` immediately to the right of `Product` in the generated table
+- keeps the `Change` column between `Current` and `Lowest` so price movement stays next to the prices
 - preserves the visible up/down coloring in the generated table
 - highlights rows in light blue when the current price matches the lowest price
 - adds explicit tracker product links and Harbor Freight links for each row

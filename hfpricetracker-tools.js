@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         HF Price Tracker Tools
 // @namespace    http://tampermonkey.net/
-// @version      1.0
+// @version      1.1
 // @description  Add table and link tools for hfpricetracker.com
 // @match        https://hfpricetracker.com/*
 // @grant        none
@@ -28,9 +28,36 @@
     const MATCHES_LOWEST_CLASS = 'hfpt-matches-lowest';
     const HARBOR_FREIGHT_SEARCH_URL = 'https://www.harborfreight.com/search?q=';
     const TRACKER_RELATIVE_TOOL_PATH = '/tools/';
+    const DEFAULT_SORT_STATE = {
+        column: null,
+        direction: null
+    };
+    const SORT_DIRECTIONS = {
+        asc: 'desc',
+        desc: 'asc'
+    };
+    const SORT_DEFAULT_DIRECTIONS = {
+        brand: 'asc',
+        sku: 'asc',
+        change: 'desc',
+        product: 'asc',
+        current: 'desc',
+        lowest: 'desc'
+    };
+    const COLUMN_DEFINITIONS = [
+        { label: 'Brand', key: 'brand', type: 'text', sortable: true, cellClass: 'hfpt-brand-cell', valueKey: 'brandText' },
+        { label: 'Product', key: 'product', type: 'text', sortable: true, cellClass: 'hfpt-product-cell', valueKey: 'productName' },
+        { label: 'SKU', key: 'sku', type: 'text', sortable: true, cellClass: 'hfpt-sku-cell', valueKey: 'skuText' },
+        { label: 'Current', key: 'current', type: 'number', sortable: true, cellClass: 'hfpt-price-cell', valueKey: 'currentPriceValue' },
+        { label: 'Change', key: 'change', type: 'number', sortable: true, cellClass: 'hfpt-change-cell', valueKey: 'changeValue' },
+        { label: 'Lowest', key: 'lowest', type: 'number', sortable: true, cellClass: 'hfpt-price-cell', valueKey: 'lowestPriceValue' },
+        { label: 'Tracker', key: 'tracker', type: 'text', sortable: false, cellClass: 'hfpt-tracker-cell', valueKey: 'trackerHref' },
+        { label: 'HF', key: 'hf', type: 'text', sortable: false, cellClass: 'hfpt-hf-cell', valueKey: 'hfSearchHref' }
+    ];
 
     let observer = null;
     let renderScheduled = false;
+    let sortState = getDefaultSortState();
 
     function getViewMode() {
         return localStorage.getItem(STORAGE_KEY) || DEFAULT_MODE;
@@ -66,12 +93,11 @@
             }
 
             #${TABLE_ID} {
-                display: block;
                 width: 100%;
+                min-width: 100%;
                 border-collapse: collapse;
                 margin-bottom: 16px;
                 background: #fff;
-                overflow-x: auto;
             }
 
             #${TABLE_ID} th,
@@ -88,6 +114,38 @@
                 z-index: 1;
                 background: #f5f7fa;
                 white-space: nowrap;
+            }
+
+            #${TABLE_ID} th button {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                padding: 0;
+                border: 0;
+                background: transparent;
+                color: inherit;
+                cursor: pointer;
+                font: inherit;
+                font-weight: 700;
+            }
+
+            #${TABLE_ID} th button::after {
+                content: '';
+                font-size: 0.85em;
+                color: #738091;
+            }
+
+            #${TABLE_ID} th button[data-sort-direction="asc"]::after {
+                content: '▲';
+            }
+
+            #${TABLE_ID} th button[data-sort-direction="desc"]::after {
+                content: '▼';
+            }
+
+            #${TABLE_ID} th button.hfpt-sortable {
+                text-decoration: underline;
+                text-underline-offset: 0.15em;
             }
 
             #${TABLE_ID} tbody tr:hover {
@@ -257,6 +315,98 @@
         };
     }
 
+    function parsePriceValue(text) {
+        const normalized = String(text || '').replace(/[^0-9.-]/g, '');
+        if (!normalized) return null;
+
+        const value = Number.parseFloat(normalized);
+        return Number.isFinite(value) ? value : null;
+    }
+
+    function parseChangePercentValue(text) {
+        const normalized = String(text || '').trim();
+        if (!normalized) return null;
+
+        const match = normalized.match(/(-?\d+(?:\.\d+)?)\s*%/);
+        if (!match) return null;
+
+        const value = Number.parseFloat(match[1]);
+        if (!Number.isFinite(value)) return null;
+        if (normalized.includes('↓')) return -value;
+        return value;
+    }
+
+    function getDefaultSortState() {
+        return { ...DEFAULT_SORT_STATE };
+    }
+
+    function getNextSortState(currentSortState, columnKey) {
+        if (!columnKey || !SORT_DEFAULT_DIRECTIONS[columnKey]) {
+            return getDefaultSortState();
+        }
+
+        if (currentSortState.column === columnKey && currentSortState.direction) {
+            return {
+                column: columnKey,
+                direction: SORT_DIRECTIONS[currentSortState.direction] || SORT_DEFAULT_DIRECTIONS[columnKey]
+            };
+        }
+
+        return {
+            column: columnKey,
+            direction: SORT_DEFAULT_DIRECTIONS[columnKey]
+        };
+    }
+
+    function compareText(left, right) {
+        return String(left || '').localeCompare(String(right || ''), undefined, {
+            sensitivity: 'base',
+            numeric: true
+        });
+    }
+
+    function compareNullableValues(left, right, comparator) {
+        const leftMissing = left === null || left === undefined || left === '';
+        const rightMissing = right === null || right === undefined || right === '';
+        if (leftMissing && rightMissing) return 0;
+        if (leftMissing) return 1;
+        if (rightMissing) return -1;
+        return comparator(left, right);
+    }
+
+    function sortProductData(rows, currentSortState) {
+        const rowsCopy = rows.slice();
+        if (!currentSortState?.column || !currentSortState?.direction) {
+            return rowsCopy.sort((left, right) => left.originalIndex - right.originalIndex);
+        }
+
+        const columnDefinition = COLUMN_DEFINITIONS.find(column => column.key === currentSortState.column);
+        if (!columnDefinition || !columnDefinition.sortable) {
+            return rowsCopy.sort((left, right) => left.originalIndex - right.originalIndex);
+        }
+
+        const directionMultiplier = currentSortState.direction === 'desc' ? -1 : 1;
+        const comparator = columnDefinition.type === 'number'
+            ? (left, right) => left - right
+            : compareText;
+
+        return rowsCopy.sort((left, right) => {
+            const leftValue = left[columnDefinition.valueKey];
+            const rightValue = right[columnDefinition.valueKey];
+            const leftMissing = leftValue === null || leftValue === undefined || leftValue === '';
+            const rightMissing = rightValue === null || rightValue === undefined || rightValue === '';
+            if (leftMissing && rightMissing) {
+                return left.originalIndex - right.originalIndex;
+            }
+            if (leftMissing) return 1;
+            if (rightMissing) return -1;
+
+            const result = comparator(leftValue, rightValue);
+            if (result !== 0) return result * directionMultiplier;
+            return left.originalIndex - right.originalIndex;
+        });
+    }
+
     function getRowColor(source) {
         return window.getComputedStyle(source).color;
     }
@@ -274,6 +424,8 @@
         const detailParagraphs = Array.from(productLink.querySelectorAll('p'));
         const priceText = detailParagraphs[detailParagraphs.length - 1]?.textContent.trim() || '';
         const prices = parsePriceSummary(priceText);
+        const currentPriceValue = parsePriceValue(prices.current);
+        const lowestPriceValue = parsePriceValue(prices.lowest);
         const trendClass = productLink.classList.contains('down')
             ? 'down'
             : productLink.classList.contains('up')
@@ -288,11 +440,15 @@
             productName,
             skuText,
             changeText,
+            changeValue: parseChangePercentValue(changeText),
             currentPrice: prices.current,
+            currentPriceValue,
             lowestPrice: prices.lowest,
+            lowestPriceValue,
             matchesLowest: prices.current && prices.current === prices.lowest,
             trendClass,
-            color: getRowColor(productLink)
+            color: getRowColor(productLink),
+            hfSearchHref: getHarborFreightHref(productLink.href, skuText)
         };
     }
 
@@ -341,25 +497,42 @@
         row.appendChild(cell);
     }
 
-    function buildTable(cards) {
+    function buildHeaderCell(columnDefinition) {
+        const th = document.createElement('th');
+        if (!columnDefinition.sortable) {
+            th.textContent = columnDefinition.label;
+            return th;
+        }
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = columnDefinition.label;
+        button.className = 'hfpt-sortable';
+        if (sortState.column === columnDefinition.key && sortState.direction) {
+            button.dataset.sortDirection = sortState.direction;
+        }
+        button.addEventListener('click', () => {
+            sortState = getNextSortState(sortState, columnDefinition.key);
+            renderTableView();
+        });
+        th.appendChild(button);
+        return th;
+    }
+
+    function buildTable(productRows) {
         const table = document.createElement('table');
         table.id = TABLE_ID;
 
         const thead = document.createElement('thead');
         const headerRow = document.createElement('tr');
-        ['Brand', 'SKU', 'Change', 'Product', 'Current', 'Lowest', 'Tracker', 'HF'].forEach(label => {
-            const th = document.createElement('th');
-            th.textContent = label;
-            headerRow.appendChild(th);
-        });
+        for (const columnDefinition of COLUMN_DEFINITIONS) {
+            headerRow.appendChild(buildHeaderCell(columnDefinition));
+        }
         thead.appendChild(headerRow);
         table.appendChild(thead);
 
         const tbody = document.createElement('tbody');
-        for (const card of cards) {
-            const data = getProductData(card);
-            if (!data) continue;
-
+        for (const data of productRows) {
             const row = document.createElement('tr');
             if (data.trendClass) {
                 row.classList.add(data.trendClass);
@@ -369,13 +542,13 @@
             }
 
             appendCell(row, 'hfpt-brand-cell', makeLink(data.brandHref, data.brandText), data.color);
-            appendCell(row, 'hfpt-sku-cell', data.skuText, data.color);
-            appendCell(row, 'hfpt-change-cell', data.changeText, data.color);
             appendCell(row, 'hfpt-product-cell', makeLink(data.productHref, data.productName), data.color);
+            appendCell(row, 'hfpt-sku-cell', data.skuText, data.color);
             appendCell(row, 'hfpt-price-cell', data.currentPrice, data.color);
+            appendCell(row, 'hfpt-change-cell', data.changeText, data.color);
             appendCell(row, 'hfpt-price-cell', data.lowestPrice, data.color);
             appendCell(row, 'hfpt-tracker-cell', makeLink(data.trackerHref, 'Open'), data.color);
-            appendCell(row, 'hfpt-hf-cell', makeLink(getHarborFreightHref(data.productHref, data.skuText), 'Open'), data.color);
+            appendCell(row, 'hfpt-hf-cell', makeLink(data.hfSearchHref, 'Open'), data.color);
             tbody.appendChild(row);
         }
 
@@ -443,7 +616,15 @@
             existingTable.remove();
         }
 
-        const table = buildTable(cards);
+        const productRows = cards
+            .map(getProductData)
+            .filter(Boolean)
+            .map((data, index) => ({
+                ...data,
+                originalIndex: index
+            }));
+        const sortedRows = sortProductData(productRows, sortState);
+        const table = buildTable(sortedRows);
         parent.insertBefore(table, container.nextSibling);
         ensureToggle(container);
         applyMode(container, getViewMode());
@@ -602,9 +783,23 @@
         initObserver();
     }
 
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', init);
-    } else {
-        init();
+    const api = {
+        parsePriceValue,
+        parseChangePercentValue,
+        getDefaultSortState,
+        getNextSortState,
+        sortProductData
+    };
+
+    if (typeof module !== 'undefined' && module.exports) {
+        module.exports = api;
+    }
+
+    if (typeof document !== 'undefined') {
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', init);
+        } else {
+            init();
+        }
     }
 })();
