@@ -48,6 +48,18 @@ Pretty much everything is vibe coded, I don't like javascript.
 - moves matching orders into a dedicated top section instead of duplicating them
 - reruns automatically as Amazon hydrates or updates the order list
 
+# MakerWorld Search Excluder
+
+- adds an `Exclude` button beside the MakerWorld search bar
+- accepts one or more exclusion keywords separated by commas or new lines
+- adds new exclusion submissions to the existing list instead of replacing it
+- adds a `Clear` button to remove all exclusion keywords at once
+- renders active exclusions as removable chips beside the search bar
+- hides result cards whose titles contain excluded keywords
+- matches against titles only, case-insensitively
+- carries exclusions across pagination by storing them in the `tmExclude` search param
+- starts empty on fresh page loads that do not include `tmExclude`
+
 # Keyword Alert
 
 - scans all webpages for configured regex matches in visible page text and editable fields
