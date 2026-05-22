@@ -50,15 +50,17 @@ Pretty much everything is vibe coded, I don't like javascript.
 
 # MakerWorld Search Excluder
 
+- adds an `Include` button beside the MakerWorld search bar
 - adds an `Exclude` button beside the MakerWorld search bar
-- accepts one or more exclusion keywords separated by commas or new lines
-- adds new exclusion submissions to the existing list instead of replacing it
-- adds a `Clear` button to remove all exclusion keywords at once
-- renders active exclusions as removable chips beside the search bar
-- hides result cards whose titles contain excluded keywords
-- matches against titles only, case-insensitively
-- carries exclusions across pagination by storing them in the `tmExclude` search param
-- starts empty on fresh page loads that do not include `tmExclude`
+- accepts one or more include or exclusion keywords separated by commas or new lines
+- adds new include and exclusion submissions to the existing list instead of replacing them
+- adds clear buttons to remove all include or exclusion keywords at once
+- renders active include and exclusion keywords as removable chips beside the search bar
+- requires titles to match all include keywords when the include list is non-empty
+- hides result cards whose titles match exclusion keywords or fail the include filter
+- matches against titles only, case-insensitively, and ignores punctuation and spacing differences
+- carries filters across pagination by storing them in the `tmInclude` and `tmExclude` search params
+- starts empty on fresh page loads that do not include filter params
 
 # Keyword Alert
 

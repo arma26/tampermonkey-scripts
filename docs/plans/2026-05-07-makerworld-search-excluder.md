@@ -2,24 +2,26 @@
 
 ## Goal
 
-Add a Tampermonkey script for MakerWorld search pages that lets the user exclude results by one or more title keywords because MakerWorld search does not support boolean exclusion.
+Add a Tampermonkey script for MakerWorld search pages that lets the user constrain results by include and exclude title keywords because MakerWorld search does not support boolean exclusion.
 
 ## Behavior
 
-- Adds an `Exclude` button beside the existing search bar.
+- Adds `Include` and `Exclude` buttons beside the existing search bar.
 - Accepts one or more keywords from a prompt using commas or new lines.
 - Treats new prompt submissions additively instead of replacing the current list.
-- Adds a `Clear` button to remove all excluded keywords at once.
-- Renders the active exclusions as removable chips beside the search bar.
-- Hides search result cards when the result title contains any excluded keyword.
-- Matches titles only, case-insensitively.
+- Adds clear buttons to remove all include or exclude keywords at once.
+- Renders the active include and exclude keywords as removable chips beside the search bar.
+- Hides search result cards when the result title fails the include filter or matches the exclude filter.
+- Include matching requires titles to match all include keywords.
+- Matches titles only, case-insensitively, and ignores punctuation and spacing differences by comparing alphanumeric-only forms.
 
 ## State model
 
-- Exclusions do not persist in Tampermonkey storage.
-- Exclusions are mirrored into the current search URL through `tmExclude`.
-- The script rehydrates exclusions from `tmExclude` on page load.
-- Pagination links are rewritten so `tmExclude` survives next/previous page navigation.
+- Filters do not persist in Tampermonkey storage.
+- Include keywords are mirrored into the current search URL through `tmInclude`.
+- Exclude keywords are mirrored into the current search URL through `tmExclude`.
+- The script rehydrates both lists from the URL on page load.
+- Pagination links are rewritten so `tmInclude` and `tmExclude` survive next/previous page navigation.
 
 ## Constraints
 

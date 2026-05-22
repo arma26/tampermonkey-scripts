@@ -341,6 +341,17 @@
         const fields = Array.from(document.querySelectorAll('input, textarea, select'));
         const entries = [];
 
+        function appendFieldEntry(field, source, text) {
+            const value = normalizeWhitespace(text);
+            if (!value) return;
+
+            entries.push({
+                source,
+                label: buildFieldLabel(field),
+                text: value
+            });
+        }
+
         for (const field of fields) {
             if (!(field instanceof HTMLElement)) continue;
             if (!isVisibleElement(field)) continue;
@@ -350,39 +361,17 @@
             if (field instanceof HTMLInputElement) {
                 const type = (field.type || 'text').toLowerCase();
                 if (EXCLUDED_FIELD_TYPES.has(type)) continue;
-
-                const value = normalizeWhitespace(field.value);
-                if (!value) continue;
-
-                entries.push({
-                    source: 'input',
-                    label: buildFieldLabel(field),
-                    text: value
-                });
+                appendFieldEntry(field, 'input', field.value);
                 continue;
             }
 
             if (field instanceof HTMLTextAreaElement) {
-                const value = normalizeWhitespace(field.value);
-                if (!value) continue;
-
-                entries.push({
-                    source: 'textarea',
-                    label: buildFieldLabel(field),
-                    text: value
-                });
+                appendFieldEntry(field, 'textarea', field.value);
                 continue;
             }
 
             if (field instanceof HTMLSelectElement) {
-                const value = normalizeWhitespace(field.selectedOptions?.[0]?.textContent || field.value);
-                if (!value) continue;
-
-                entries.push({
-                    source: 'select',
-                    label: buildFieldLabel(field),
-                    text: value
-                });
+                appendFieldEntry(field, 'select', field.selectedOptions?.[0]?.textContent || field.value);
             }
         }
 

@@ -365,13 +365,13 @@
         });
     }
 
-    function compareNullableValues(left, right, comparator) {
+    function compareNullableValues(left, right) {
         const leftMissing = left === null || left === undefined || left === '';
         const rightMissing = right === null || right === undefined || right === '';
         if (leftMissing && rightMissing) return 0;
         if (leftMissing) return 1;
         if (rightMissing) return -1;
-        return comparator(left, right);
+        return null;
     }
 
     function sortProductData(rows, currentSortState) {
@@ -393,13 +393,11 @@
         return rowsCopy.sort((left, right) => {
             const leftValue = left[columnDefinition.valueKey];
             const rightValue = right[columnDefinition.valueKey];
-            const leftMissing = leftValue === null || leftValue === undefined || leftValue === '';
-            const rightMissing = rightValue === null || rightValue === undefined || rightValue === '';
-            if (leftMissing && rightMissing) {
+            const missingResult = compareNullableValues(leftValue, rightValue);
+            if (missingResult !== null) {
+                if (missingResult !== 0) return missingResult;
                 return left.originalIndex - right.originalIndex;
             }
-            if (leftMissing) return 1;
-            if (rightMissing) return -1;
 
             const result = comparator(leftValue, rightValue);
             if (result !== 0) return result * directionMultiplier;
