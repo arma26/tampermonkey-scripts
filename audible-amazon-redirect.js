@@ -1,9 +1,10 @@
 // ==UserScript==
 // @name         Audible Amazon Redirect
 // @namespace    http://tampermonkey.net/
-// @version      0.2
+// @version      0.3
 // @description  Add a button on Audible book pages to search the title on Amazon
 // @match        https://www.audible.com/pd/*
+// @match        https://www.audible.com/ac/*
 // @grant        none
 // @run-at       document-idle
 // ==/UserScript==
@@ -192,3 +193,4 @@
         }
     }
 })();
+
