@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Audible Amazon Redirect
 // @namespace    http://tampermonkey.net/
-// @version      0.1
+// @version      0.2
 // @description  Add a button on Audible book pages to search the title on Amazon
 // @match        https://www.audible.com/pd/*
 // @grant        none
@@ -23,8 +23,7 @@
         '[data-testid="buybox-primary-cta"]',
         '[data-testid="buybox"]',
         '.bc-container .adblBuyBoxArea',
-        '.adblBuyBoxArea',
-        'main'
+        '.adblBuyBoxArea'
     ];
 
     let observer = null;
@@ -75,7 +74,7 @@
             if (node) return node;
         }
 
-        return null;
+        return doc.body || null;
     }
 
     function injectStyles(doc) {
@@ -99,10 +98,31 @@
                 line-height: 1.2;
                 text-decoration: none;
                 cursor: pointer;
+                box-sizing: border-box;
+                z-index: 2147483647;
             }
 
             #${BUTTON_ID}:hover {
                 background: #f5f5f5;
+            }
+
+            body > #${BUTTON_ID} {
+                position: fixed;
+                right: 16px;
+                bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+                max-width: calc(100vw - 32px);
+                box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+            }
+
+            @media (max-width: 767px) {
+                body > #${BUTTON_ID} {
+                    left: 16px;
+                    right: 16px;
+                    width: auto;
+                    justify-content: center;
+                    border-radius: 14px;
+                    padding: 14px 16px;
+                }
             }
         `;
 

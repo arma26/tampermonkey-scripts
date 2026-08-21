@@ -7,7 +7,7 @@ const vm = require('node:vm');
 const scriptPath = path.join(__dirname, '..', 'audible-amazon-redirect.js');
 const scriptSource = fs.readFileSync(scriptPath, 'utf8');
 
-function createElementFactory(state) {
+function createElementFactory() {
     return function createElement(tagName) {
         return {
             tagName: String(tagName || '').toUpperCase(),
@@ -24,16 +24,19 @@ function createElementFactory(state) {
     };
 }
 
-function runUserscript({ headingText = '', metaTitle = '', containerSelector = '[data-testid="buybox"]' } = {}) {
+function runUserscript({ headingText = '', metaTitle = '', containerSelectors = ['[data-testid="buybox"]'] } = {}) {
     const state = {
         appendedNodes: [],
         styleNodes: [],
-        elementsById: new Map()
+        elementsById: new Map(),
+        bodyAppends: 0,
+        containerAppends: 0
     };
     const heading = headingText ? { textContent: headingText } : null;
     const meta = metaTitle ? { content: metaTitle } : null;
     const container = {
         appendChild(node) {
+            state.containerAppends += 1;
             state.appendedNodes.push(node);
             if (node.id) state.elementsById.set(node.id, node);
             return node;
@@ -48,11 +51,13 @@ function runUserscript({ headingText = '', metaTitle = '', containerSelector = '
     };
     const body = {
         appendChild(node) {
+            state.bodyAppends += 1;
             state.appendedNodes.push(node);
             if (node.id) state.elementsById.set(node.id, node);
             return node;
         }
     };
+    const selectorSet = new Set(containerSelectors);
     const document = {
         readyState: 'complete',
         head,
@@ -60,13 +65,13 @@ function runUserscript({ headingText = '', metaTitle = '', containerSelector = '
         querySelector(selector) {
             if (selector === 'h1') return heading;
             if (selector === 'meta[property="og:title"]') return meta;
-            if (selector === containerSelector) return container;
+            if (selectorSet.has(selector)) return container;
             return null;
         },
         getElementById(id) {
             return state.elementsById.get(id) || null;
         },
-        createElement: createElementFactory(state),
+        createElement: createElementFactory(),
         addEventListener() {}
     };
     const context = {
@@ -94,6 +99,8 @@ test('adds an Amazon search button using the visible heading title', () => {
     assert.ok(button);
     assert.equal(button.href, 'https://www.amazon.com/s?k=Example+Book+Title');
     assert.equal(button.textContent, 'Search Amazon for "Example Book Title"');
+    assert.equal(state.containerAppends, 1);
+    assert.equal(state.bodyAppends, 0);
 });
 
 test('falls back to og:title metadata when the heading is missing', () => {
@@ -103,6 +110,18 @@ test('falls back to og:title metadata when the heading is missing', () => {
     assert.ok(button);
     assert.equal(button.href, 'https://www.amazon.com/s?k=Example+Metadata+Title');
     assert.equal(button.textContent, 'Search Amazon for "Example Metadata Title"');
+});
+
+test('falls back to document body when no buy-box container matches', () => {
+    const state = runUserscript({ headingText: 'Example Book Title', containerSelectors: [] });
+    const button = state.elementsById.get('tm-audible-amazon-redirect-button');
+    const styleNode = state.elementsById.get('tm-audible-amazon-redirect-style');
+
+    assert.ok(button);
+    assert.ok(styleNode);
+    assert.equal(state.containerAppends, 0);
+    assert.equal(state.bodyAppends, 1);
+    assert.match(styleNode.textContent, /body > #tm-audible-amazon-redirect-button/);
 });
 
 test('does not create a button when no title can be found', () => {
