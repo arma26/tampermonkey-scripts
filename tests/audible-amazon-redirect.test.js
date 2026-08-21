@@ -1,47 +1,127 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
 
-const {
-    buildAmazonSearchUrl,
-    extractBookTitle,
-    buildButtonLabel
-} = require('../audible-amazon-redirect.js');
+const scriptPath = path.join(__dirname, '..', 'audible-amazon-redirect.js');
+const scriptSource = fs.readFileSync(scriptPath, 'utf8');
 
-test('buildAmazonSearchUrl encodes a plain book title into an Amazon search', () => {
-    assert.equal(
-        buildAmazonSearchUrl('Example Book Title'),
-        'https://www.amazon.com/s?k=Example+Book+Title'
-    );
-});
+function createElementFactory(state) {
+    return function createElement(tagName) {
+        return {
+            tagName: String(tagName || '').toUpperCase(),
+            id: '',
+            href: '',
+            textContent: '',
+            content: '',
+            style: {},
+            attributes: {},
+            setAttribute(name, value) {
+                this.attributes[name] = value;
+            }
+        };
+    };
+}
 
-test('extractBookTitle prefers the visible heading title', () => {
-    const heading = { textContent: '  Example Book Title  ' };
-    const doc = {
+function runUserscript({ headingText = '', metaTitle = '', containerSelector = '[data-testid="buybox"]' } = {}) {
+    const state = {
+        appendedNodes: [],
+        styleNodes: [],
+        elementsById: new Map()
+    };
+    const heading = headingText ? { textContent: headingText } : null;
+    const meta = metaTitle ? { content: metaTitle } : null;
+    const container = {
+        appendChild(node) {
+            state.appendedNodes.push(node);
+            if (node.id) state.elementsById.set(node.id, node);
+            return node;
+        }
+    };
+    const head = {
+        appendChild(node) {
+            state.styleNodes.push(node);
+            if (node.id) state.elementsById.set(node.id, node);
+            return node;
+        }
+    };
+    const body = {
+        appendChild(node) {
+            state.appendedNodes.push(node);
+            if (node.id) state.elementsById.set(node.id, node);
+            return node;
+        }
+    };
+    const document = {
+        readyState: 'complete',
+        head,
+        body,
         querySelector(selector) {
             if (selector === 'h1') return heading;
-            return null;
-        }
-    };
-
-    assert.equal(extractBookTitle(doc), 'Example Book Title');
-});
-
-test('extractBookTitle falls back to og:title metadata when no heading exists', () => {
-    const meta = { content: 'Example Book Title' };
-    const doc = {
-        querySelector(selector) {
-            if (selector === 'h1') return null;
             if (selector === 'meta[property="og:title"]') return meta;
+            if (selector === containerSelector) return container;
             return null;
+        },
+        getElementById(id) {
+            return state.elementsById.get(id) || null;
+        },
+        createElement: createElementFactory(state),
+        addEventListener() {}
+    };
+    const context = {
+        URL,
+        console,
+        document,
+        window: {
+            requestAnimationFrame(callback) {
+                callback();
+            }
+        },
+        MutationObserver: class {
+            observe() {}
         }
     };
 
-    assert.equal(extractBookTitle(doc), 'Example Book Title');
+    vm.runInNewContext(scriptSource, context);
+    return state;
+}
+
+test('adds an Amazon search button using the visible heading title', () => {
+    const state = runUserscript({ headingText: '  Example Book Title  ' });
+    const button = state.elementsById.get('tm-audible-amazon-redirect-button');
+
+    assert.ok(button);
+    assert.equal(button.href, 'https://www.amazon.com/s?k=Example+Book+Title');
+    assert.equal(button.textContent, 'Search Amazon for "Example Book Title"');
 });
 
-test('buildButtonLabel includes the extracted title for context', () => {
-    assert.equal(
-        buildButtonLabel('Example Book Title'),
-        'Search Amazon for "Example Book Title"'
-    );
+test('falls back to og:title metadata when the heading is missing', () => {
+    const state = runUserscript({ metaTitle: 'Example Metadata Title' });
+    const button = state.elementsById.get('tm-audible-amazon-redirect-button');
+
+    assert.ok(button);
+    assert.equal(button.href, 'https://www.amazon.com/s?k=Example+Metadata+Title');
+    assert.equal(button.textContent, 'Search Amazon for "Example Metadata Title"');
+});
+
+test('does not create a button when no title can be found', () => {
+    const state = runUserscript();
+
+    assert.equal(state.elementsById.get('tm-audible-amazon-redirect-button'), undefined);
+});
+
+test('injects its stylesheet once during initialization', () => {
+    const state = runUserscript({ headingText: 'Example Book Title' });
+    const styleNode = state.elementsById.get('tm-audible-amazon-redirect-style');
+
+    assert.ok(styleNode);
+    assert.match(styleNode.textContent, /tm-audible-amazon-redirect-button/);
+});
+
+test('executes without module in a browser-like context', () => {
+    assert.doesNotMatch(scriptSource, /module\.exports/);
+    assert.doesNotThrow(() => {
+        runUserscript({ headingText: 'Example Book Title' });
+    });
 });

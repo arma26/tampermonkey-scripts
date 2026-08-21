@@ -15,3 +15,5 @@ This file guides Codex-style agents working in this repo.
 - Scripts live at repo root; filenames are descriptive.
 - Use ASCII only unless the script already includes Unicode.
 - Do not remove user changes you did not make.
+- tampermonkey scripts should be entirely self contained. it's fine if tests are outside of the script, but the script itself is
+  isolated

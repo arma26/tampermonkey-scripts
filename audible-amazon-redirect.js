@@ -164,17 +164,6 @@
         initObserver();
     }
 
-    const api = {
-        normalizeWhitespace,
-        extractBookTitle,
-        buildAmazonSearchUrl,
-        buildButtonLabel
-    };
-
-    if (typeof module !== 'undefined' && module.exports) {
-        module.exports = api;
-    }
-
     if (typeof window !== 'undefined' && typeof document !== 'undefined') {
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', init, { once: true });
