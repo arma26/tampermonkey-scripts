@@ -48,6 +48,12 @@ Pretty much everything is vibe coded, I don't like javascript.
 - moves matching orders into a dedicated top section instead of duplicating them
 - reruns automatically as Amazon hydrates or updates the order list
 
+# Audible Amazon Redirect
+
+- adds a button on Audible book detail pages
+- extracts the visible book title and opens an Amazon search for that title
+- reruns automatically if Audible hydrates the page after initial load
+
 # MakerWorld Search Excluder
 
 - adds an `Include` button beside the MakerWorld search bar
