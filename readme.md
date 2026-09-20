@@ -17,6 +17,12 @@ Pretty much everything is vibe coded, I don't like javascript.
 
 - remove links relating to AI from the aggregator
 - supports infinite scroll and detects when the page changes and reruns the filter
+
+# Serializer Dracula Theme
+
+- applies the Dracula palette to serializer.io
+- themes the feed, read states, menu, settings, buttons, messages, links, and metadata
+
 # Steam Deck Verified to Top
 
 - moves the Steam Deck compatibility block to the top of the right sidebar on Steam app pages
