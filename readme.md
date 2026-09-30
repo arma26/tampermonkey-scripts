@@ -46,6 +46,14 @@ Pretty much everything is vibe coded, I don't like javascript.
 - hides expired coupons by default and adds a toggle to reveal them
 - removes the unused chart/list tab strip on tool pages after moving the coupon list
 
+# Harbor Freight Price History
+
+- embeds the hfpricetracker.com price history on harborfreight.com product pages
+- extracts the product SKU from the trailing `-<sku>.html` in the page URL to look up the matching tracker tool page
+- fetches the tracker page via `GM_xmlhttpRequest` and parses the embedded `_priceHistoryData` block
+- renders a step chart, current/lowest/highest prices, and a link back to the tracker page
+- waits for the page to settle and falls back to a floating card if no anchor is found
+
 # Amazon Orders Today First
 
 - moves order cards marked `Arriving today` or `Delivered today` to the top of the Amazon orders page
