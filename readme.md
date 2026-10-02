@@ -23,6 +23,11 @@ Pretty much everything is vibe coded, I don't like javascript.
 - applies the Dracula palette to serializer.io
 - themes the feed, read states, menu, settings, buttons, messages, links, and metadata
 
+# Hacker News Dracula Theme
+
+- applies the Dracula palette to `news.ycombinator.com` using Tampermonkey
+- themes the feed, article comments, navigation, links, voting arrows, and forms without changing the site's layout
+
 # Steam Deck Verified to Top
 
 - moves the Steam Deck compatibility block to the top of the right sidebar on Steam app pages
