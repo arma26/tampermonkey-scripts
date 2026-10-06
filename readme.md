@@ -2,11 +2,15 @@ Pretty much everything is vibe coded, I don't like javascript.
 
 # X Stay on Web
 
-- `x-stay-on-web.js` dismisses English-language X/Twitter app-promotion dialogs, including the open-app replies prompt
-- blocks clicks on app deep links and Apple/Google app-store links on X/Twitter; recognized post/profile deep links stay on the web
-- watches for prompts added during SPA navigation; leaves unrelated dialogs alone
-- cannot prevent server-side redirects before the userscript loads, arbitrary scripted app launches, or unlock replies X does not serve to the browser
-- live selectors could not be verified against the supplied post; install on mobile and check both prompts
+- `x-stay-on-web.js` automatically dismisses X's app-store obstruction and hides the delayed `See all the replies` banner
+- converts `m.x.com` app-launch links to ordinary X web URLs, removing `launch_app_store` and its app attribution parameters while retaining other query parameters and fragments
+- sets `ct=tm-stay-on-web` when attribution is absent, using X's own skip condition to prevent automatic mobile-browser forwarding; incoming app-launch URLs get one clean reload
+- suppresses Google One Tap/FedCM prompts and hides an existing Google credential picker; X actions that invoke that same Google popup are also suppressed, while other X login methods remain available
+- blocks clicks on native-app and app-store links; recognized native post/profile links stay on the web
+- watches for added or updated prompts during SPA navigation and leaves posts, compose dialogs, and normal X login dialogs alone
+- cannot prevent server-side redirects before the userscript loads or unlock replies X does not serve to the browser
+- verified with isolated Chrome checks using HAR-derived component markup and the captured public Google SDK; live mobile/Tampermonkey behavior still needs a check
+- focused regression checks: `node --test tests/x-stay-on-web.test.js`
 
 # Humble Bundle Key Collector
 
