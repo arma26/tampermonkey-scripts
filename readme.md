@@ -1,5 +1,13 @@
 Pretty much everything is vibe coded, I don't like javascript.
 
+# X Stay on Web
+
+- `x-stay-on-web.js` dismisses English-language X/Twitter app-promotion dialogs, including the open-app replies prompt
+- blocks clicks on app deep links and Apple/Google app-store links on X/Twitter; recognized post/profile deep links stay on the web
+- watches for prompts added during SPA navigation; leaves unrelated dialogs alone
+- cannot prevent server-side redirects before the userscript loads, arbitrary scripted app launches, or unlock replies X does not serve to the browser
+- live selectors could not be verified against the supplied post; install on mobile and check both prompts
+
 # Humble Bundle Key Collector
 
 - create a key collection in the browser local storage so it persists.
