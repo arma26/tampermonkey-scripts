@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         ChatGPT Conversation JSON Exporter
 // @namespace    homespace
-// @version      0.1.0
+// @version      0.1.1
 // @description  Export the active ChatGPT conversation to JSON with menu actions.
 // @match        https://chatgpt.com/*
 // @match        https://chat.openai.com/*
@@ -32,19 +32,26 @@
     return "Untitled Conversation";
   };
 
+  const MESSAGE_SELECTOR = '[data-message-author-role], [data-user-message-bubble="true"], [data-markdown-text-style="assistant-message"]';
+
   const getMessageText = (messageNode) => {
-    const contentNode = messageNode.querySelector("[data-message-content]") || messageNode;
+    const contentNode = messageNode.querySelector('[data-message-content], [data-user-message-bubble="true"], [data-markdown-text-style="assistant-message"], .markdown') || messageNode;
     return contentNode.innerText.trim();
   };
 
   const getMessages = () => {
-    const nodes = Array.from(document.querySelectorAll("div[data-message-author-role]"));
+    // Current ChatGPT uses content markers instead of data-message-author-role.
+    // A legacy role wrapper may contain those markers; export it only once.
+    const nodes = Array.from(document.querySelectorAll(MESSAGE_SELECTOR)).filter(
+      (node) => !node.parentElement?.closest(MESSAGE_SELECTOR)
+    );
     if (!nodes.length) {
-      throw new Error("No ChatGPT messages found on this page.");
+      throw new Error("No ChatGPT messages found on this page. Open a conversation and wait for its messages to load.");
     }
 
     return nodes.map((node, index) => {
-      const role = node.getAttribute("data-message-author-role") || "unknown";
+      const role = node.getAttribute("data-message-author-role") ||
+        (node.hasAttribute("data-user-message-bubble") ? "user" : "assistant");
       const text = getMessageText(node);
 
       return {

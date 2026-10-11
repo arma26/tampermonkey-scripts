@@ -48,6 +48,10 @@ Pretty much everything is vibe coded, I don't like javascript.
 
 - exports the active ChatGPT conversation to JSON via Tampermonkey menu commands
 - includes copy-to-clipboard, download, preview, and stats actions
+- supports current user-bubble/assistant-markdown markers and older role-based markup without duplicate messages
+- exports messages currently rendered in the page; it does not fetch unloaded history
+- browser regression checks: `node --test tests/chatgpt-export-conversation.test.js` (requires Chrome; set `CHROME_BIN` for another Chromium executable)
+- optional local snapshot check: `CHATGPT_SNAPSHOT=.scratch/chatgpt.html node --test tests/chatgpt-export-conversation.test.js`; isolated fixtures/profiles stay under `TMPDIR` (or the Hermes scratch directory), including private snapshot content when supplied
 
 # HF Price Tracker Tools
 
