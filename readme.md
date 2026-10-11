@@ -46,12 +46,13 @@ Pretty much everything is vibe coded, I don't like javascript.
 
 # ChatGPT Conversation JSON Exporter
 
-- exports the active ChatGPT conversation to JSON via Tampermonkey menu commands
-- includes copy-to-clipboard, download, preview, and stats actions
-- supports current user-bubble/assistant-markdown markers and older role-based markup without duplicate messages
-- exports messages currently rendered in the page; it does not fetch unloaded history
-- browser regression checks: `node --test tests/chatgpt-export-conversation.test.js` (requires Chrome; set `CHROME_BIN` for another Chromium executable)
-- optional local snapshot check: `CHATGPT_SNAPSHOT=.scratch/chatgpt.html node --test tests/chatgpt-export-conversation.test.js`; isolated fixtures/profiles stay under `TMPDIR` (or the Hermes scratch directory), including private snapshot content when supplied
+- exports the full saved ChatGPT conversation to JSON via Tampermonkey menu commands, fetching older history pages until the API reports no previous page
+- includes copy-to-clipboard, download, preview, and stats actions; preview opens before asynchronous loading to preserve popup activation
+- reload the conversation after installing/updating: the script observes its initial history request at `document-start` to reuse the active account/project headers in memory, without saving or exporting credentials
+- preserves each original API message under `raw`, including structured attachment references and tool content; it does not download attachment binaries or enumerate alternate branches
+- fails without producing a partial export on missing authentication, malformed pagination, HTTP errors, or account/conversation changes; each request has a 30-second timeout and an export is limited to 1,000 pages
+- browser regression checks: `node --test tests/chatgpt-export-conversation.test.js` (requires Chrome; set `CHROME_BIN` for another Chromium executable); tests use synthetic API responses and userscript-manager stubs, not a logged-in account
+- isolated test fixtures/profiles stay under `TMPDIR` (or the Hermes scratch directory); the HAR and private conversation content are not committed
 
 # HF Price Tracker Tools
 
