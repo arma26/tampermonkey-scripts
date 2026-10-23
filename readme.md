@@ -1,5 +1,15 @@
 Pretty much everything is vibe coded, I don't like javascript.
 
+# Reddit No App Wall
+
+- `reddit-no-app-wall.user.js` removes mobile app-wall portals, including `Get the app to keep using Reddit`
+- recognizes known promotion containers and falls back to the exact heading plus app button inside a fixed/modal shell
+- uses Reddit's promotion-dismissal event when available, closes native modal layers, and clears common page scroll/tap locks without unlocking visible ordinary dialogs
+- reruns for delayed insertion and attribute-only portal changes; preserves post/comment content
+- self-contained, no external libraries or privileged userscript permissions; cannot recover content Reddit has not sent to the browser
+- focused checks: `node --test tests/reddit-no-app-wall.test.js` (requires Chrome; set `CHROME_BIN` for another Chromium executable)
+- tested in isolated Chromium fixtures based on the supplied markup, with synthetic surrounding containers; live mobile/Tampermonkey execution remains unverified
+
 # X Stay on Web
 
 - `x-stay-on-web.js` automatically dismisses X's app-store obstruction and hides the delayed `See all the replies` banner
